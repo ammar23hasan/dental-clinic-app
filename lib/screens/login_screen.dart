@@ -35,12 +35,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // الشعار - تأكد من إضافة الصورة في assets وتحديث المسار
               Image.asset(
-                'assets/logo.png', // **غيّر هذا المسار إلى مسار شعارك الفعلي**
-                height: 80,
+                'assets/images/logo.png', // **تأكد من أن الصورة موجودة في هذا المسار**
+                height: 160,
               ),
 
               // المسافة
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
 
               // النص الترحيبي
               const Text(
@@ -112,12 +112,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // TODO: أضف منطق "نسيت كلمة المرور" هنا
-                    print('Forgot Password tapped');
+                    // التنقل: يذهب إلى شاشة نسيت كلمة المرور
+                    Navigator.pushNamed(context, '/forgotPassword');
                   },
                   child: const Text(
                     'Forgot Password?',
-                    style: TextStyle(color: primaryColor),
+                    style: TextStyle(color: kPrimaryColor),
                   ),
                 ),
               ),

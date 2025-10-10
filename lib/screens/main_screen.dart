@@ -1,42 +1,112 @@
 // lib/screens/main_screen.dart
 
 import 'package:flutter/material.dart';
-import '../constants.dart'; // مسار ملف الثوابت
+import '../constants.dart';
+import '../models/appointment_model.dart'; // نحتاج لاستيراد الموديل
+import 'notifications_sheet.dart'; // استيراد ملف الشيت
 
-class MainScreen extends StatelessWidget {
+class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
-  // اللون الأزرق الرئيسي المستخدم في التطبيق
-  final Color primaryColor = kPrimaryColor; // لون أزرق فاتح
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  final Color primaryColor = kPrimaryColor;
+
+  // دالة لتحديد رسالة الترحيب بناءً على الوقت
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good morning';
+    } else if (hour < 17) {
+      return 'Good afternoon';
+    } else {
+      return 'Good evening';
+    }
+  }
+
+  // بيانات وهمية للمواعيد القادمة
+  final List<Appointment> _upcomingAppointments = [
+    Appointment(
+      id: 'A001',
+      service: 'Regular Checkup',
+      date: 'Oct 15, 2025',
+      time: '10:00 AM',
+      doctorName: 'Dr. Sarah Johnson',
+      clinicAddress: '123 Health Street, Medical District',
+      status: 'Confirmed',
+      duration: '30 minutes',
+    ),
+    Appointment(
+      id: 'A002',
+      service: 'Dental Cleaning',
+      date: 'Oct 22, 2025',
+      time: '2:30 PM',
+      doctorName: 'Dr. Michael Chen',
+      clinicAddress: '123 Health Street, Medical District',
+      status: 'Pending',
+      duration: '45 minutes',
+    ),
+  ];
+
+  // بيانات الخدمات الشائعة مع الأيقونات والأسعار
+  final List<Map<String, dynamic>> _popularServices = const [
+    {
+      'name': 'Regular Checkup',
+      'duration': '30 min',
+      'price': '75',
+      'icon': Icons.healing,
+    },
+    {
+      'name': 'Dental Cleaning',
+      'duration': '45 min',
+      'price': '120',
+      'icon': Icons.clean_hands,
+    },
+    {
+      'name': 'Teeth Whitening',
+      'duration': '60 min',
+      'price': '200',
+      'icon': Icons.star,
+    },
+    {
+      'name': 'Root Canal',
+      'duration': '90 min',
+      'price': '450',
+      'icon': Icons.medical_services,
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // الهيدر والترحيب (SliverAppBar)
+            // ********** الهيدر والترحيب (SliverAppBar) **********
             SliverAppBar(
               floating: true,
               pinned: false,
               elevation: 0,
-              backgroundColor: Colors.white,
-              title: const Column(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Good morning',
+                    _getGreeting(), // رسالة الترحيب الديناميكية
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 14,
                       color: Colors.grey,
                       fontWeight: FontWeight.normal,
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Ammar Hasan',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
@@ -50,7 +120,7 @@ class MainScreen extends StatelessWidget {
                     color: Colors.grey,
                   ),
                   onPressed: () {
-                    // TODO: الذهاب إلى شاشة الإشعارات
+                    _showNotificationsSheet(context); // تفعيل شيت الإشعارات
                   },
                 ),
                 Padding(
@@ -60,7 +130,6 @@ class MainScreen extends StatelessWidget {
                     child: IconButton(
                       icon: Icon(Icons.person, color: primaryColor),
                       onPressed: () {
-                        // التنقل: يذهب إلى شاشة الملف الشخصي
                         Navigator.pushNamed(context, '/profile');
                       },
                     ),
@@ -69,7 +138,7 @@ class MainScreen extends StatelessWidget {
               ],
             ),
 
-            // قائمة العناصر المتبقية (SliverList)
+            // ********** قائمة العناصر المتبقية (SliverList) **********
             SliverList(
               delegate: SliverChildListDelegate([
                 const SizedBox(height: 20),
@@ -79,7 +148,6 @@ class MainScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Column(
                     children: [
-                      // زر حجز الموعد
                       _buildQuickActionButton(
                         context,
                         icon: Icons.calendar_today,
@@ -89,7 +157,6 @@ class MainScreen extends StatelessWidget {
                         isPrimary: true,
                       ),
                       const SizedBox(height: 15),
-                      // زر مواعيدي
                       _buildQuickActionButton(
                         context,
                         icon: Icons.access_time,
@@ -99,7 +166,6 @@ class MainScreen extends StatelessWidget {
                         isPrimary: false,
                       ),
                       const SizedBox(height: 15),
-                      // زر خدمات العيادة
                       _buildQuickActionButton(
                         context,
                         icon: Icons.medical_services_outlined,
@@ -119,33 +185,18 @@ class MainScreen extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
                     'Upcoming Appointments',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 10),
 
-                // بطاقة الموعد الأول (قابلة للضغط)
-                _buildAppointmentCard(
-                  context,
-                  title: 'Regular Checkup',
-                  date: 'Aug 15, 2025 at 10:00 AM',
-                  doctor: 'Dr. Sarah Johnson',
-                  status: 'Confirmed',
-                  statusColor: Colors.green,
-                ),
-                // بطاقة الموعد الثاني (قابلة للضغط)
-                _buildAppointmentCard(
-                  context,
-                  title: 'Dental Cleaning',
-                  date: 'Aug 22, 2025 at 2:30 PM',
-                  doctor: 'Dr. Michael Chen',
-                  status: 'Pending',
-                  statusColor: Colors.orange,
-                ),
+                // عرض قائمة المواعيد (استخدام موديل البيانات)
+                ..._upcomingAppointments
+                    .map(
+                      (appointment) =>
+                          _buildAppointmentTile(context, appointment),
+                    )
+                    .toList(),
 
                 const SizedBox(height: 30),
 
@@ -154,53 +205,27 @@ class MainScreen extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
                     'Popular Services',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 10),
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 15,
-                    mainAxisSpacing: 15,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: 1.2,
-                    children: [
-                      _buildServiceCard(
-                        context,
-                        'Regular Checkup',
-                        '30 min',
-                        '\$75',
-                      ),
-                      _buildServiceCard(
-                        context,
-                        'Dental Cleaning',
-                        '45 min',
-                        '\$120',
-                      ),
-                      _buildServiceCard(
-                        context,
-                        'Teeth Whitening',
-                        '60 min',
-                        '\$200',
-                      ),
-                      _buildServiceCard(
-                        context,
-                        'Root Canal',
-                        '90 min',
-                        '\$450',
-                      ),
-                    ],
+                // ********** شريط التمرير الأفقي الجديد **********
+                SizedBox(
+                  height: 140,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _popularServices.length,
+                    itemBuilder: (context, index) {
+                      final service = _popularServices[index];
+                      return _buildServiceCardHorizontal(context, service);
+                    },
                   ),
                 ),
-                const SizedBox(height: 40),
+
+                // **********************************************
+                const SizedBox(height: 50),
               ]),
             ),
           ],
@@ -213,7 +238,22 @@ class MainScreen extends StatelessWidget {
   // الدوال المساعدة (Helper Widgets)
   // -------------------------------------------------------------------
 
-  // دالة لبناء الأزرار السريعة في الجزء العلوي (مع منطق التنقل)
+  // دالة لفتح شيت الإشعارات
+  void _showNotificationsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return const FractionallySizedBox(
+          heightFactor: 0.60,
+          child: NotificationsSheet(),
+        );
+      },
+    );
+  }
+
+  // دالة لبناء الأزرار السريعة (Quick Actions)
   Widget _buildQuickActionButton(
     BuildContext context, {
     required IconData icon,
@@ -222,7 +262,7 @@ class MainScreen extends StatelessWidget {
     required Color color,
     required bool isPrimary,
   }) {
-    // تحديد منطق التنقل بناءً على عنوان الزر
+    // تحديد منطق التنقل بناءً على العنوان
     VoidCallback navigationTap;
     if (title == 'Book Appointment') {
       navigationTap = () {
@@ -257,7 +297,7 @@ class MainScreen extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: navigationTap, // استخدام منطق التنقل
+          onTap: navigationTap,
           borderRadius: BorderRadius.circular(15),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -312,95 +352,69 @@ class MainScreen extends StatelessWidget {
     );
   }
 
-  // دالة لبناء بطاقات المواعيد القادمة (مع تفعيل التنقل)
-  Widget _buildAppointmentCard(
-    BuildContext context, {
-    required String title,
-    required String date,
-    required String doctor,
-    required String status,
-    required Color statusColor,
-  }) {
-    return InkWell(
-      // التنقل: يذهب إلى شاشة تفاصيل الموعد
-      onTap: () {
-        Navigator.pushNamed(context, '/appointmentDetails');
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
-            border: Border.all(color: Colors.grey.shade200),
-          ),
+  // دالة بناء بطاقة الموعد (مع تفعيل التنقل)
+  Widget _buildAppointmentTile(BuildContext context, Appointment appointment) {
+    Color statusColor = appointment.status == 'Confirmed'
+        ? Colors.green
+        : Colors.orange;
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        // التنقل الفعلي: يذهب إلى شاشة تفاصيل الموعد
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            '/appointmentDetails',
+            arguments: appointment, // تمرير بيانات الموعد
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(15.0),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // أيقونة التقويم
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.calendar_today,
-                  color: primaryColor,
-                  size: 24,
-                ),
-              ),
+              Icon(Icons.calendar_today, color: primaryColor),
               const SizedBox(width: 15),
-              // تفاصيل الموعد
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      appointment.service,
                       style: const TextStyle(
-                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        fontSize: 16,
                       ),
                     ),
-                    const SizedBox(height: 4),
                     Text(
-                      date,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      '${appointment.date} at ${appointment.time}',
+                      style: const TextStyle(color: Colors.grey),
                     ),
-                    const SizedBox(height: 4),
                     Text(
-                      doctor,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      'Dr. ${appointment.doctorName}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
                     ),
                   ],
                 ),
               ),
-              // حالة الموعد
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
-                  vertical: 5,
+                  vertical: 4,
                 ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  status,
+                  appointment.status,
                   style: TextStyle(
+                    color: statusColor,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: statusColor,
                   ),
                 ),
               ),
@@ -411,50 +425,68 @@ class MainScreen extends StatelessWidget {
     );
   }
 
-  // دالة لبناء بطاقات الخدمات الشائعة
-  Widget _buildServiceCard(
+  // دالة بناء بطاقة الخدمة (للتمرير الأفقي)
+  Widget _buildServiceCardHorizontal(
     BuildContext context,
-    String title,
-    String duration,
-    String price,
+    Map<String, dynamic> service,
   ) {
-    return InkWell(
-      // عند الضغط على خدمة شائعة، يمكن أن يذهب إلى شاشة حجز الموعد
-      onTap: () {
-        Navigator.pushNamed(context, '/bookAppointment');
-      },
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+    return Container(
+      width: 140,
+      margin: const EdgeInsets.only(right: 15),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: () {
+            // التنقل إلى صفحة تفاصيل الخدمة عند الضغط
+            Navigator.pushNamed(
+              context,
+              '/serviceDetails',
+              arguments: service['name'],
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(15.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(
+                  service['icon'],
+                  size: 30,
+                  color: primaryColor.withOpacity(0.8),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      service['name'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      service['duration'],
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '\$${service['price']}',
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            Text(
-              duration,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            Text(
-              price,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -51,28 +51,28 @@ class ProfileScreen extends StatelessWidget {
 
               // ********** 3. قسم الإعدادات والخيارات **********
               _buildSettingsOption(
+                context,
                 icon: Icons.notifications_none_outlined,
                 title: 'Notifications',
                 subtitle: 'Manage your notification preferences',
-                onTap: () {},
               ),
               _buildSettingsOption(
+                context,
                 icon: Icons.security_outlined,
                 title: 'Privacy & Security',
                 subtitle: 'Update your privacy settings',
-                onTap: () {},
               ),
               _buildSettingsOption(
+                context,
                 icon: Icons.settings_outlined,
                 title: 'App Settings',
                 subtitle: 'Customize your app experience',
-                onTap: () {},
               ),
               _buildSettingsOption(
+                context,
                 icon: Icons.help_outline,
                 title: 'Help & Support',
                 subtitle: 'Get help or contact support',
-                onTap: () {},
               ),
 
               const SizedBox(height: 40),
@@ -210,16 +210,36 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // بناء خيارات الإعدادات (البطاقات التي تملأ العرض)
-  Widget _buildSettingsOption({
+  // ********** الدالة المحدثة للإعدادات (مع منطق التنقل) **********
+  Widget _buildSettingsOption(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
-    required VoidCallback onTap,
   }) {
+    String routeName;
+    if (title == 'Notifications') {
+      routeName = '/notifications';
+    } else if (title == 'Privacy & Security') {
+      routeName = '/privacySecurity';
+    } else if (title == 'App Settings') {
+      routeName = '/appSettings';
+    } else if (title == 'Help & Support') {
+      routeName = '/helpSupport';
+    } else {
+      routeName = '';
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 15.0),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          if (routeName.isNotEmpty) {
+            Navigator.pushNamed(context, routeName);
+          } else {
+            print('Route not defined for $title');
+          }
+        },
         borderRadius: BorderRadius.circular(15),
         child: Container(
           padding: const EdgeInsets.all(15),

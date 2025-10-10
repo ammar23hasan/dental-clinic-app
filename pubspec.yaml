@@ -54,14 +54,17 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: "^0.13.1" #
 
 flutter:
   uses-material-design: true
 
-  # 🟢 ملاحظة: حاليًا لا يوجد أي ملفات Assets فعلية، لذلك قمنا بإزالة أو تعليق المسارات
-  # assets:
-  #   - assets/images/
-  #   - assets/icons/
-  #   - assets/animations/
+  assets:
+    - assets/images/logo.png # تأكد من وجود الصورة في هذا المسار
+    # pubspec.yaml (في نهاية الملف)
 
-  # خطوط
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png" # <--- مسار أيقونتك
+  min_sdk_android: 21 # الحد الأدنى لإصدار Android المدعوم (عادة 21)

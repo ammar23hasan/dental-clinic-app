@@ -1,4 +1,8 @@
+// lib/main.dart (الكود المحدث بالكامل)
+
 import 'package:flutter/material.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 // استيراد الشاشات وملف الثوابت
 import 'constants.dart';
@@ -11,99 +15,140 @@ import 'screens/profile_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/my_appointments_screen.dart';
 import 'screens/clinic_services_screen.dart';
+import 'screens/notifications_settings_screen.dart';
+import 'screens/privacy_security_screen.dart';
+import 'screens/app_settings_screen.dart';
+import 'screens/help_support_screen.dart';
+import 'screens/change_password_screen.dart';
+import 'screens/privacy_policy_screen.dart';
+import 'screens/two_factor_auth_screen.dart';
+import 'screens/forgot_password_screen.dart'; // <--- إضافة الاستيراد
+import 'screens/reset_confirmation_screen.dart';
+import 'screens/service_details_screen.dart'; // <--- إضافة الاستيراد الجديد
+import 'screens/faq_screen.dart';
+import 'screens/report_problem_screen.dart';
 
-// ********** 1. الدالة الرئيسية **********
 void main() {
   runApp(const MyApp());
 }
 
-// ********** 2. التطبيق الرئيسي **********
-class MyApp extends StatelessWidget {
+// تم تحويلها إلى StatefulWidget لإدارة ThemeMode
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  // هذه الدالة تسمح بالوصول إلى الـ State من أي مكان (لتغيير الثيم)
+  static _MyAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<_MyAppState>()!;
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  // المتغير الذي يتحكم في مظهر التطبيق
+  ThemeMode _themeMode = ThemeMode.light;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemeMode(); // تحميل الثيم المحفوظ عند بدء التطبيق
+  }
+
+  // تحميل الثيم من shared_preferences
+  void _loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool isDark = prefs.getBool('darkMode') ?? false;
+    setState(() {
+      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
+
+  // الدالة التي تستدعيها شاشة الإعدادات لتغيير الثيم
+  void setThemeMode(bool isDark) {
+    setState(() {
+      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+    });
+    // يتم حفظ القيمة داخل شاشة AppSettingsScreen
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Dental Clinic App',
       debugShowCheckedModeBanner: false,
+
+      // ********** الإضافة الجديدة لـ ThemeMode **********
+      themeMode: _themeMode, // <--- يتحكم في الوضع الحالي (Light/Dark)
       theme: ThemeData(
+        // إعدادات الوضع الفاتح
         primaryColor: kPrimaryColor,
-        fontFamily: 'Roboto', // يمكنك تحديد خط موحد هنا
+        primarySwatch: Colors.blue, // للتحكم في الألوان الأساسية
+        brightness: Brightness.light,
         appBarTheme: const AppBarTheme(
           color: Colors.white,
           iconTheme: IconThemeData(color: Colors.black),
         ),
         useMaterial3: true,
       ),
+      darkTheme: ThemeData(
+        // إعدادات الوضع الداكن
+        primaryColor: kPrimaryColor,
+        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+        // يمكنك تخصيص الألوان الداكنة هنا
+        appBarTheme: AppBarTheme(
+          color: Colors.grey.shade900,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        scaffoldBackgroundColor: Colors.grey.shade900,
+        cardColor: Colors.grey.shade800,
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Colors.white70),
+          bodyMedium: TextStyle(color: Colors.white70),
+        ),
+        useMaterial3: true,
+      ),
 
-      // ********** 3. تعريف المسارات (Routes) **********
-      // المسار الافتراضي (الشاشة الأولى عند تشغيل التطبيق)
+      // ********** تعريف المسارات (Routes) **********
       initialRoute: '/login',
 
       routes: {
-        // شاشات المصادقة (Authentication)
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),
-
-        // الشاشة الرئيسية
         '/main': (context) => const MainScreen(),
-
-        // شاشات المواعيد
-        '/bookAppointment': (context) =>
-            const BookAppointmentScreen(), // تأكد من صحة المسار
+        '/bookAppointment': (context) => const BookAppointmentScreen(),
         '/appointmentDetails': (context) => const AppointmentDetailsScreen(),
-
-        // شاشات الملف الشخصي
-        '/profile': (context) => const ProfileScreen(), // تأكد من صحة المسار
+        '/myAppointments': (context) => const MyAppointmentsScreen(),
+        '/clinicServices': (context) => const ClinicServicesScreen(),
+        '/profile': (context) => const ProfileScreen(),
         '/editProfile': (context) => const EditProfileScreen(),
-        '/myAppointments': (context) =>
-            const MyAppointmentsScreen(), // Ensure this route is correct
-        '/clinicServices': (context) =>
-            const ClinicServicesScreen(), // Ensure this route is correct
+        '/notifications': (context) => const NotificationsSettingsScreen(),
+        '/privacySecurity': (context) => const PrivacySecurityScreen(),
+        // نمرر دالة التغيير كمعامل لتمكين شاشة الإعدادات من التحكم بالثيم
+        '/appSettings': (context) => AppSettingsScreen(
+          onThemeChange: (isDark) => MyApp.of(context).setThemeMode(isDark),
+        ),
+        '/helpSupport': (context) => const HelpSupportScreen(),
+        '/changePassword': (context) => const ChangePasswordScreen(),
+        '/privacyPolicy': (context) => const PrivacyPolicyScreen(),
+        '/twoFactorAuth': (context) => const TwoFactorAuthScreen(),
+        '/clinicServices': (context) => const ClinicServicesScreen(),
+        // المسارات الإضافية للمساعدة
+        '/faqScreen': (context) => const FaqScreen(), // <--- المسار الجديد
+        '/reportProblemScreen': (context) =>
+            const ReportProblemScreen(), // <--- المسار الجديد
+        '/forgotPassword': (context) =>
+            const ForgotPasswordScreen(), // <--- تأكد من وجود هذا المسار
+        '/resetPasswordConfirmation': (context) =>
+            const ResetConfirmationScreen(),
+        // **المسار المحدث:** لقبول المعامل وتمريره إلى مُنشئ الشاشة
+        '/serviceDetails': (context) {
+          final serviceName =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              'Service Details';
+          return ServiceDetailsScreen(serviceName: serviceName);
+        },
       },
     );
   }
 }
-
-// -----------------------------------------------------------
-// ********** 4. أمثلة على كيفية الربط داخل الشاشات **********
-// -----------------------------------------------------------
-
-// يجب وضع هذا المنطق داخل الدوال onPressed في الشاشات
-// على سبيل المثال:
-
-/*
-// داخل ملف login_screen.dart
-// عند الضغط على زر "Sign In":
-onPressed: () {
-  // للذهاب إلى الشاشة الرئيسية وإزالة كل المسارات السابقة
-  Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
-},
-
-// عند الضغط على زر "Sign up" في شاشة تسجيل الدخول:
-onPressed: () {
-  // للذهاب إلى شاشة التسجيل
-  Navigator.pushNamed(context, '/signup'); 
-},
-
-
-// داخل ملف main_screen.dart
-// عند الضغط على زر "Book Appointment":
-onTap: () {
-  // للذهاب إلى شاشة حجز الموعد
-  Navigator.pushNamed(context, '/bookAppointment');
-},
-
-// عند الضغط على أيقونة الملف الشخصي في الهيدر:
-onPressed: () {
-  // للذهاب إلى شاشة الملف الشخصي
-  Navigator.pushNamed(context, '/profile');
-},
-
-// داخل ملف profile_screen.dart
-// عند الضغط على زر التعديل (القلم):
-onPressed: () {
-  // للذهاب إلى شاشة تعديل الملف الشخصي
-  Navigator.pushNamed(context, '/editProfile');
-},
-*/
