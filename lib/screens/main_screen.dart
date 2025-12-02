@@ -1,9 +1,9 @@
-// lib/screens/main_screen.dart
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../constants.dart';
-import '../models/appointment_model.dart'; // نحتاج لاستيراد الموديل
-import 'notifications_sheet.dart'; // استيراد ملف الشيت
+import '../models/appointment_model.dart';
+import 'notifications_sheet.dart';
+import '../providers/locale_provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -114,6 +114,41 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
               actions: [
+                // Language switcher popup
+                Padding(
+                  padding: const EdgeInsets.only(right: 4.0),
+                  child: PopupMenuButton<String>(
+                    tooltip: 'Language',
+                    icon: const Icon(Icons.language, color: Colors.grey),
+                    onSelected: (value) {
+                      final provider = Provider.of<LocaleProvider>(context, listen: false);
+                      if (value == 'en') {
+                        provider.setLocale(const Locale('en'));
+                      } else if (value == 'ar') {
+                        provider.setLocale(const Locale('ar'));
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'en',
+                        child: Row(
+                          children: const [
+                            Text('English'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'ar',
+                        child: Row(
+                          children: const [
+                            Text('العربية'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 IconButton(
                   icon: const Icon(
                     Icons.notifications_none,
@@ -196,7 +231,7 @@ class _MainScreenState extends State<MainScreen> {
                       (appointment) =>
                           _buildAppointmentTile(context, appointment),
                     )
-                    .toList(),
+                    ,
 
                 const SizedBox(height: 30),
 
@@ -280,9 +315,29 @@ class _MainScreenState extends State<MainScreen> {
       navigationTap = () {};
     }
 
+    final theme = Theme.of(context);
+    // Use theme-aware colors for non-primary cards so they adapt to dark/light modes
+    final Color backgroundColor =
+        isPrimary ? primaryColor.withOpacity(0.9) : theme.cardColor;
+    final Color iconContainerColor = isPrimary
+        ? Colors.white
+        : theme.colorScheme.primary.withOpacity(0.08);
+    final Color iconColor = isPrimary
+        ? theme.colorScheme.primary
+        : theme.colorScheme.primary;
+    final Color titleColor = isPrimary
+        ? Colors.white
+        : (theme.textTheme.titleLarge?.color ?? theme.textTheme.bodyLarge?.color ?? Colors.black);
+    final Color? subtitleColor = isPrimary
+        ? Colors.white70
+        : (theme.textTheme.bodySmall?.color ?? Colors.grey[600]);
+    final Color arrowColor = isPrimary
+        ? Colors.white
+        : (theme.iconTheme.color ?? Colors.grey);
+
     return Container(
       decoration: BoxDecoration(
-        color: isPrimary ? primaryColor.withOpacity(0.9) : color,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(15),
         boxShadow: isPrimary
             ? [
@@ -306,14 +361,12 @@ class _MainScreenState extends State<MainScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isPrimary
-                        ? Colors.white
-                        : primaryColor.withOpacity(0.1),
+                    color: iconContainerColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     icon,
-                    color: isPrimary ? primaryColor : primaryColor,
+                    color: iconColor,
                   ),
                 ),
                 const SizedBox(width: 15),
@@ -326,14 +379,14 @@ class _MainScreenState extends State<MainScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: isPrimary ? Colors.white : Colors.black,
+                          color: titleColor,
                         ),
                       ),
                       Text(
                         subtitle,
                         style: TextStyle(
                           fontSize: 14,
-                          color: isPrimary ? Colors.white70 : Colors.grey[600],
+                          color: subtitleColor,
                         ),
                       ),
                     ],
@@ -342,8 +395,8 @@ class _MainScreenState extends State<MainScreen> {
                 Icon(
                   Icons.arrow_forward_ios,
                   size: 16,
-                  color: isPrimary ? Colors.white : Colors.grey,
-                ),
+                  color: arrowColor,
+            ),
               ],
             ),
           ),
@@ -351,7 +404,6 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-
   // دالة بناء بطاقة الموعد (مع تفعيل التنقل)
   Widget _buildAppointmentTile(BuildContext context, Appointment appointment) {
     Color statusColor = appointment.status == 'Confirmed'

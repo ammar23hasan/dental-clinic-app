@@ -1,34 +1,31 @@
 // lib/screens/notifications_settings_screen.dart (الكود المحدّث بالكامل)
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <--- الاستيراد الجديد
+import 'package:shared_preferences/shared_preferences.dart'; // لحفظ الإعدادات
 import '../constants.dart';
 
 class NotificationsSettingsScreen extends StatefulWidget {
   const NotificationsSettingsScreen({super.key});
 
   @override
-  State<NotificationsSettingsScreen> createState() =>
-      _NotificationsSettingsScreenState();
+  State<NotificationsSettingsScreen> createState() => _NotificationsSettingsScreenState();
 }
 
-class _NotificationsSettingsScreenState
-    extends State<NotificationsSettingsScreen> {
+class _NotificationsSettingsScreenState extends State<NotificationsSettingsScreen> {
+  // القيم الافتراضية
   bool _appointmentReminders = true;
   bool _offerPromotions = false;
   bool _systemAlerts = true;
-  bool _isLoading = true; // لمعرفة متى ينتهي تحميل الإعدادات
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadNotificationPreferences(); // <--- بدء تحميل الإعدادات عند بناء الشاشة
+    _loadPreferences(); // تحميل البيانات عند الفتح
   }
 
-  // ********** الدوال الوظيفية الحقيقية **********
-
-  // دالة تحميل الإعدادات من الذاكرة المحلية
-  void _loadNotificationPreferences() async {
+  // تحميل الإعدادات المحفوظة
+  void _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _appointmentReminders = prefs.getBool('reminders') ?? true;
@@ -38,107 +35,91 @@ class _NotificationsSettingsScreenState
     });
   }
 
-  // دالة حفظ الإعدادات إلى الذاكرة المحلية
-  void _saveNotificationPreferences() async {
+  // حفظ الإعدادات عند التغيير
+  void _savePreference(String key, bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('reminders', _appointmentReminders);
-    await prefs.setBool('offers', _offerPromotions);
-    await prefs.setBool('system', _systemAlerts);
-
-    // إظهار رسالة تأكيد بسيطة
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notification settings saved!')),
-    );
+    await prefs.setBool(key, value);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Setting saved successfully!', style: TextStyle(fontSize: 14)),
+          duration: Duration(milliseconds: 500),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Notification Preferences',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Notification Preferences', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 1,
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: kPrimaryColor),
-            ) // عرض شاشة تحميل
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator(color: kPrimaryColor))
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
-                const Text(
-                  'Control how you receive alerts from Dental Clinic.',
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const Divider(height: 30),
-
-                // إشعارات المواعيد
-                _buildToggleTile(
+                const Text('Control how you receive alerts from Dental Clinic.'),
+                const SizedBox(height: 20),
+                
+                // 1. تذكيرات المواعيد
+                _buildSwitchTile(
                   title: 'Appointment Reminders',
                   subtitle: 'Get alerts 24 hours before your visit.',
                   value: _appointmentReminders,
-                  onChanged: (bool newValue) {
-                    setState(() {
-                      _appointmentReminders = newValue;
-                      _saveNotificationPreferences(); // <--- حفظ الحالة الجديدة
-                    });
+                  onChanged: (val) {
+                    setState(() => _appointmentReminders = val);
+                    _savePreference('reminders', val);
                   },
                 ),
 
-                // إشعارات العروض الترويجية
-                _buildToggleTile(
+                // 2. العروض
+                _buildSwitchTile(
                   title: 'Offers & Promotions',
-                  subtitle:
-                      'Receive discounts and special news from the clinic.',
+                  subtitle: 'Receive discounts and special news.',
                   value: _offerPromotions,
-                  onChanged: (bool newValue) {
-                    setState(() {
-                      _offerPromotions = newValue;
-                      _saveNotificationPreferences(); // <--- حفظ الحالة الجديدة
-                    });
+                  onChanged: (val) {
+                    setState(() => _offerPromotions = val);
+                    _savePreference('offers', val);
                   },
                 ),
 
-                // تنبيهات النظام
-                _buildToggleTile(
+                // 3. تنبيهات النظام
+                _buildSwitchTile(
                   title: 'System Alerts',
                   subtitle: 'Critical updates and security notifications.',
                   value: _systemAlerts,
-                  onChanged: (bool newValue) {
-                    setState(() {
-                      _systemAlerts = newValue;
-                      _saveNotificationPreferences(); // <--- حفظ الحالة الجديدة
-                    });
+                  onChanged: (val) {
+                    setState(() => _systemAlerts = val);
+                    _savePreference('system', val);
                   },
-                ),
-
-                const Divider(height: 30),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    'To manage email or SMS notifications, please visit the web portal.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
                 ),
               ],
             ),
     );
   }
 
-  Widget _buildToggleTile({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return SwitchListTile(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle),
-      value: value,
-      onChanged: onChanged,
-      activeColor: kPrimaryColor,
+  Widget _buildSwitchTile({required String title, required String subtitle, required bool value, required Function(bool) onChanged}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: SwitchListTile(
+        activeColor: kPrimaryColor,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        ),
+        value: value,
+        onChanged: onChanged,
+      ),
     );
   }
 }

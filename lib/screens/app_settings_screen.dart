@@ -88,7 +88,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                       widget.onThemeChange(newValue);
                     });
                   },
-                  activeColor: kPrimaryColor,
+                  activeThumbColor: kPrimaryColor,
                 ),
 
                 // 2. إعداد اللغة (Language)

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../constants.dart'; // مسار ملف الثوابت
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -9,18 +11,113 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final Color primaryColor = kPrimaryColor; // اللون الأزرق الأساسي
+  final Color primaryColor = kPrimaryColor;
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
-  // المتحكمات لـ TextFields
-  final TextEditingController _nameController = TextEditingController(
-    text: 'Ammar Hasan',
-  );
-  final TextEditingController _emailController = TextEditingController(
-    text: 'ammarhasan@gmail.com',
-  );
-  final TextEditingController _phoneController = TextEditingController(
-    text: '+1 (555) 123-4567',
-  );
+  bool _isLoading = false;
+  bool _isDataLoaded = false;
+  final User? currentUser = FirebaseAuth.instance.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  void _loadUserProfile() async {
+    if (currentUser == null) return;
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .get();
+
+      if (userDoc.exists && userDoc.data() != null) {
+        final data = userDoc.data()!;
+        _nameController.text = data['fullName'] ?? '';
+        _emailController.text = data['email'] ?? currentUser!.email ?? '';
+        _phoneController.text = data['phoneNumber'] ?? '';
+      } else {
+        // If no Firestore document, fallback to Auth values
+        _nameController.text = '';
+        _emailController.text = currentUser!.email ?? '';
+        _phoneController.text = '';
+      }
+    } on FirebaseException catch (fsErr) {
+      // Handle permission issues and other Firestore errors gracefully
+      if (fsErr.code == 'permission-denied') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Permission denied reading profile. Check Firestore rules or project config.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        // Fallback to Auth data so the screen remains usable
+        _nameController.text = '';
+        _emailController.text = currentUser!.email ?? '';
+        _phoneController.text = '';
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load profile: ${fsErr.message}'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unexpected error loading profile: $e'), backgroundColor: Colors.red),
+        );
+      }
+      _emailController.text = currentUser!.email ?? '';
+    } finally {
+      setState(() {
+        _isDataLoaded = true;
+      });
+    }
+  }
+
+  void _saveChanges() async {
+    if (!_formKey.currentState!.validate() || currentUser == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).update({
+        'fullName': _nameController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully!')),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _cancelEdit() {
+    Navigator.pop(context);
+  }
 
   @override
   void dispose() {
@@ -30,97 +127,58 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  void _saveChanges() {
-    print('Saving changes...');
-    print('New Name: ${_nameController.text}');
-    print('New Email: ${_emailController.text}');
-    print('New Phone: ${_phoneController.text}');
-    Navigator.pop(context); // العودة إلى صفحة الملف الشخصي
-  }
-
-  void _cancelEdit() {
-    // TODO: منطق إلغاء التعديلات (قد تحتاج إلى إعادة تعيين الحقول الأصلية)
-    Navigator.pop(context); // العودة للشاشة السابقة
-  }
-
   @override
   Widget build(BuildContext context) {
+    if (!_isDataLoaded) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Edit Profile')),
+        body: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text(
-          'Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: _cancelEdit,
-        ),
+        title: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               const SizedBox(height: 20),
 
-              // ********** 1. قسم حقول الإدخال (البطاقة الزرقاء) **********
               _buildEditProfileCard(),
               const SizedBox(height: 40),
 
-              // ********** 2. أزرار الإجراءات **********
               Row(
                 children: [
-                  // زر حفظ التغييرات
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _saveChanges,
+                      onPressed: _isLoading ? null : _saveChanges,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(50),
                         backgroundColor: primaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text(
-                        'Save Changes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // زر إلغاء
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _cancelEdit,
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(50),
-                        side: BorderSide(
-                          color: primaryColor.withOpacity(0.5),
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        side: BorderSide(color: primaryColor.withOpacity(0.5), width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         foregroundColor: primaryColor,
                         backgroundColor: Colors.white,
                       ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -133,92 +191,68 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  // -------------------------------------------------------------------
-  // الدوال المساعدة (Helper Widgets)
-  // -------------------------------------------------------------------
-
-  // بناء بطاقة تعديل الملف الشخصي
   Widget _buildEditProfileCard() {
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         color: primaryColor,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5))],
       ),
       child: Column(
         children: [
           const Icon(Icons.person_outline, size: 40, color: Colors.white),
           const SizedBox(height: 20),
           _buildProfileTextField(
-            _nameController,
+            controller: _nameController,
             hint: 'Full Name',
             keyboardType: TextInputType.name,
+            icon: Icons.person,
           ),
           _buildProfileTextField(
-            _emailController,
+            controller: _emailController,
             hint: 'Email',
             keyboardType: TextInputType.emailAddress,
+            isEditable: false,
+            icon: Icons.email,
           ),
           _buildProfileTextField(
-            _phoneController,
+            controller: _phoneController,
             hint: 'Phone',
             keyboardType: TextInputType.phone,
+            icon: Icons.call,
           ),
         ],
       ),
     );
   }
 
-  // بناء حقل إدخال مخصص ليتناسب مع التصميم الأزرق
-  Widget _buildProfileTextField(
-    TextEditingController controller, {
+  Widget _buildProfileTextField({
+    required TextEditingController controller,
     required String hint,
     required TextInputType keyboardType,
+    required IconData icon,
+    bool isEditable = true,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
+        enabled: isEditable,
         keyboardType: keyboardType,
-        style: const TextStyle(
-          color: Colors.black87,
-          fontWeight: FontWeight.w600,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.normal,
-          ),
+          hintStyle: TextStyle(fontWeight: FontWeight.normal),
+          prefixIcon: Icon(icon, color: isEditable ? kPrimaryColor : Colors.grey),
           filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 15,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(
-              color: Colors.lightBlueAccent,
-              width: 2,
-            ),
-          ),
+          fillColor: Theme.of(context).cardColor,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.lightBlueAccent, width: 2)),
         ),
+        validator: (value) => (isEditable && (value == null || value.isEmpty)) ? 'Field cannot be empty.' : null,
       ),
     );
   }

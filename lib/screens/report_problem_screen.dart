@@ -76,7 +76,7 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                     borderRadius: BorderRadius.circular(10.0),
                   ),
                 ),
-                value: _issueType,
+                initialValue: _issueType,
                 items: issueTypes.map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,

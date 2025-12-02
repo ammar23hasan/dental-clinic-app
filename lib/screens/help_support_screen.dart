@@ -8,28 +8,52 @@ class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
 
   // البيانات الفعلية للتواصل
-  final String _phoneNumber = '+15559876543';
-  final String _emailAddress = 'support@dentalclinic.com';
+  static const String _phoneNumber = '+15559876543';
+  static const String _emailAddress = 'support@dentalclinic.com';
 
   // دوال الإجراءات الخارجية
-  void _launchPhone(BuildContext context, String phoneNumber) async {
+  Future<void> _launchPhone(BuildContext context, String phoneNumber) async {
     final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
-    if (await canLaunchUrl(phoneUri)) {
-      await launchUrl(phoneUri);
-    } else {
+    try {
+      if (await canLaunchUrl(phoneUri)) {
+        final bool launched = await launchUrl(phoneUri,
+            mode: LaunchMode.externalApplication);
+        if (!launched) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not launch phone dialer.')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not launch phone dialer.')),
+        );
+      }
+    } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not launch phone dialer.')),
+        const SnackBar(content: Text('An error occurred while trying to call.')),
       );
     }
   }
 
-  void _launchEmail(BuildContext context, String emailAddress) async {
+  Future<void> _launchEmail(BuildContext context, String emailAddress) async {
     final Uri emailUri = Uri(scheme: 'mailto', path: emailAddress);
-    if (await canLaunchUrl(emailUri)) {
-      await launchUrl(emailUri);
-    } else {
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        final bool launched = await launchUrl(emailUri,
+            mode: LaunchMode.externalApplication);
+        if (!launched) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not launch email application.')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not launch email application.')),
+        );
+      }
+    } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not launch email application.')),
+        const SnackBar(content: Text('An error occurred while trying to open email.')),
       );
     }
   }
@@ -37,12 +61,8 @@ class HelpSupportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50, // خلفية فاتحة
       appBar: AppBar(
-        title: const Text(
-          'Help & Support',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Help & Support', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 1,
       ),
       body: SingleChildScrollView(
@@ -57,35 +77,31 @@ class HelpSupportScreen extends StatelessWidget {
             ),
             const SizedBox(height: 15),
 
-            SizedBox(
-              height:
-                  MediaQuery.of(context).size.height *
-                  0.25, // جعل الارتفاع ديناميكي
-              child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 1.8,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                physics:
-                    const NeverScrollableScrollPhysics(), // لمنع تعارض التمرير
-                children: [
-                  _buildQuickHelpCard(
-                    context,
-                    title: 'FAQ',
-                    subtitle: 'Common Questions',
-                    icon: Icons.live_help_outlined,
-                    onTap: () => Navigator.pushNamed(context, '/faqScreen'),
-                  ),
-                  _buildQuickHelpCard(
-                    context,
-                    title: 'Report',
-                    subtitle: 'Submit a bug or issue',
-                    icon: Icons.bug_report_outlined,
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/reportProblemScreen'),
-                  ),
-                ],
-              ),
+            // استخدم GridView بدون ارتفاع ثابت واجعلها shrink-wrapped
+            GridView.count(
+              shrinkWrap: true, // يسمح للـ GridView أن يأخذ ارتفاع المحتوى داخل SingleChildScrollView
+              crossAxisCount: 2,
+              childAspectRatio: 1.2, // تقليل النسبة لزيادة ارتفاع البطاقات عمودياً
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              physics: const NeverScrollableScrollPhysics(), // منع التمرير المتداخل
+              children: [
+                _buildQuickHelpCard(
+                  context,
+                  title: 'FAQ',
+                  subtitle: 'Common Questions',
+                  icon: Icons.live_help_outlined,
+                  onTap: () => Navigator.pushNamed(context, '/faqScreen'),
+                ),
+                _buildQuickHelpCard(
+                  context,
+                  title: 'Report',
+                  subtitle: 'Submit a bug or issue',
+                  icon: Icons.bug_report_outlined,
+                  onTap: () =>
+                      Navigator.pushNamed(context, '/reportProblemScreen'),
+                ),
+              ],
             ),
 
             const SizedBox(height: 30),
@@ -98,6 +114,7 @@ class HelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 15),
 
             _buildContactCard(
+              context: context,
               icon: Icons.phone_outlined,
               title: 'Call Support Hotline',
               subtitle: '+1 (555) 987-6543',
@@ -107,6 +124,7 @@ class HelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 15),
 
             _buildContactCard(
+              context: context,
               icon: Icons.email_outlined,
               title: 'Email Us',
               subtitle: _emailAddress,
@@ -176,6 +194,7 @@ class HelpSupportScreen extends StatelessWidget {
 
   // دالة لبناء بطاقات التواصل (List Tiles)
   Widget _buildContactCard({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -185,6 +204,7 @@ class HelpSupportScreen extends StatelessWidget {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      color: Theme.of(context).cardColor,
       child: ListTile(
         onTap: onTap,
         leading: Container(
