@@ -45,6 +45,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
               'fullName': _nameController.text.trim(),
               'email': _emailController.text.trim(),
+              'role': 'Patient', // تعيين الدور الافتراضي كـ 'Patient'
               'phoneNumber': '',
               'createdAt': FieldValue.serverTimestamp(),
             });

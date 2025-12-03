@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // <--- استيراد Firebase Auth
+import 'package:cloud_firestore/cloud_firestore.dart'; // <--- استيراد Firestore
 import '../constants.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -24,42 +25,86 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // دالة تسجيل الدخول باستخدام Firebase
-  void _signIn() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+Future<void> _login() async {
+  if (!_formKey.currentState!.validate()) return;
 
-      try {
-        // 1. محاولة تسجيل الدخول في Firebase
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    // 1) تسجيل الدخول
+    final credential =
         await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
 
-        // 2. إذا نجح تسجيل الدخول، انتقل إلى الشاشة الرئيسية (Main Screen)
-        Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
-      } on FirebaseAuthException catch (e) {
-        // 3. التعامل مع أخطاء Firebase (مثل كلمة مرور خاطئة أو مستخدم غير موجود)
-        String errorMessage;
-        if (e.code == 'user-not-found') {
-          errorMessage = 'No user found for that email.';
-        } else if (e.code == 'wrong-password') {
-          errorMessage = 'Wrong password provided for that user.';
-        } else {
-          errorMessage = 'Login failed. Check your credentials.';
-        }
+    final user = credential.user;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'no-user',
+        message: 'User is null after signIn',
+      );
+    }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    print('LOGIN SUCCESS, UID = ${user.uid}');
+
+    // 2) قراءة role من Firestore
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    String role = 'Patient';
+    if (doc.exists) {
+      final data = doc.data();
+      role = (data?['role'] ?? 'Patient').toString();
+    }
+
+    print('USER ROLE FROM FIRESTORE = $role');
+
+    // 3) التوجيه حسب الدور
+    if (role.toLowerCase() == 'admin') {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/adminDashboard',
+        (route) => false,
+      );
+    } else {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/main',
+        (route) => false,
+      );
+    }
+  } on FirebaseAuthException catch (e) {
+    print('LOGIN ERROR = ${e.code} - ${e.message}');
+
+    String message = 'Login failed. Please try again.';
+    if (e.code == 'user-not-found') {
+      message = 'No user found for this email.';
+    } else if (e.code == 'wrong-password') {
+      message = 'Wrong password.';
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  } catch (e) {
+    print('UNEXPECTED LOGIN ERROR = $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Something went wrong.')),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 onPressed: _isLoading
                     ? null
-                    : _signIn, // استدعاء دالة تسجيل الدخول
+                    : _login, // استدعاء دالة تسجيل الدخول المحدثة
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 55),
                   backgroundColor: primaryColor, // لون الزر الأساسي
