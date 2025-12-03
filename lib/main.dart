@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -11,6 +12,7 @@ import 'providers/locale_provider.dart';
 
 // استيراد الشاشات وملف الثوابت
 import 'constants.dart';
+import 'screens/admin_dashboard.dart';
 import 'screens/login_screen.dart';
 import 'screens/sign_up_screen.dart';
 import 'screens/main_screen.dart';
@@ -34,20 +36,20 @@ import 'screens/faq_screen.dart';
 import 'screens/report_problem_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); 
+  WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
   runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  // expose the state so other widgets can call setThemeMode
-  static _MyAppState? of(BuildContext context) => context.findAncestorStateOfType<_MyAppState>();
+  static _MyAppState? of(BuildContext context) =>
+      context.findAncestorStateOfType<_MyAppState>();
 
   @override
   _MyAppState createState() => _MyAppState();
@@ -67,7 +69,7 @@ class _MyAppState extends State<MyApp> {
     return ChangeNotifierProvider<LocaleProvider>(
       create: (_) {
         final provider = LocaleProvider();
-        provider.loadLocale(); // load persisted locale
+        provider.loadLocale();
         return provider;
       },
       child: Consumer<LocaleProvider>(
@@ -76,7 +78,7 @@ class _MyAppState extends State<MyApp> {
             title: 'Dental Clinic App',
             debugShowCheckedModeBanner: false,
 
-            themeMode: _themeMode, 
+            themeMode: _themeMode,
             theme: ThemeData(
               primaryColor: kPrimaryColor,
               primarySwatch: Colors.blue,
@@ -104,10 +106,10 @@ class _MyAppState extends State<MyApp> {
               useMaterial3: true,
             ),
 
-            // ********** استخدام AuthGate كنقطة انطلاق **********
-            home: const AuthGate(), 
+            // نبدأ من شاشة تسجيل الدخول
+            home: const LoginScreen(),
 
-            locale: localeProvider.locale, // important: apply selected locale
+            locale: localeProvider.locale,
             supportedLocales: const [
               Locale('en'),
               Locale('ar'),
@@ -117,7 +119,6 @@ class _MyAppState extends State<MyApp> {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            // Optional: let system decide when locale is null
             localeResolutionCallback: (locale, supportedLocales) {
               if (locale == null) return supportedLocales.first;
               for (final supported in supportedLocales) {
@@ -128,32 +129,44 @@ class _MyAppState extends State<MyApp> {
               return supportedLocales.first;
             },
 
-            // نستخدم المسارات فقط للتنقل الداخلي (PushNamed)
             routes: {
               '/login': (context) => const LoginScreen(),
               '/signup': (context) => const SignUpScreen(),
+              '/adminDashboard': (context) => const AdminDashboard(),
               '/main': (context) => const MainScreen(),
               '/bookAppointment': (context) => const BookAppointmentScreen(),
-              '/appointmentDetails': (context) => const AppointmentDetailsScreen(),
+              '/appointmentDetails': (context) =>
+                  const AppointmentDetailsScreen(),
               '/myAppointments': (context) => const MyAppointmentsScreen(),
               '/clinicServices': (context) => const ClinicServicesScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/editProfile': (context) => const EditProfileScreen(),
-              '/notifications': (context) => const NotificationsSettingsScreen(),
-              '/privacySecurity': (context) => const PrivacySecurityScreen(),
+              '/notifications': (context) =>
+                  const NotificationsSettingsScreen(),
+              '/privacySecurity': (context) =>
+                  const PrivacySecurityScreen(),
               '/appSettings': (context) => AppSettingsScreen(
-                onThemeChange: (isDark) => MyApp.of(context)?.setThemeMode(isDark),
-              ),
+                    onThemeChange: (isDark) =>
+                        MyApp.of(context)?.setThemeMode(isDark),
+                  ),
               '/helpSupport': (context) => const HelpSupportScreen(),
-              '/changePassword': (context) => const ChangePasswordScreen(),
-              '/privacyPolicy': (context) => const PrivacyPolicyScreen(),
-              '/twoFactorAuth': (context) => const TwoFactorAuthScreen(),
-              '/forgotPassword': (context) => const ForgotPasswordScreen(),
-              '/resetPasswordConfirmation': (context) => const ResetConfirmationScreen(),
+              '/changePassword': (context) =>
+                  const ChangePasswordScreen(),
+              '/privacyPolicy': (context) =>
+                  const PrivacyPolicyScreen(),
+              '/twoFactorAuth': (context) =>
+                  const TwoFactorAuthScreen(),
+              '/forgotPassword': (context) =>
+                  const ForgotPasswordScreen(),
+              '/resetPasswordConfirmation': (context) =>
+                  const ResetConfirmationScreen(),
               '/faqScreen': (context) => const FaqScreen(),
-              '/reportProblemScreen': (context) => const ReportProblemScreen(),
+              '/reportProblemScreen': (context) =>
+                  const ReportProblemScreen(),
               '/serviceDetails': (context) {
-                final serviceName = ModalRoute.of(context)?.settings.arguments as String? ?? 'Service Details';
+                final serviceName =
+                    ModalRoute.of(context)?.settings.arguments as String? ??
+                        'Service Details';
                 return ServiceDetailsScreen(serviceName: serviceName);
               },
             },
@@ -163,23 +176,3 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-
-// ********** كلاس AuthGate الجديد **********
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // StreamBuilder يستمع لحالة تسجيل الدخول (تسجيل الدخول/الخروج)
-    return StreamBuilder<User?>(stream: FirebaseAuth.instance.authStateChanges(), builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator(color: kPrimaryColor)));
-      }
-      if (snapshot.hasData && snapshot.data != null) {
-        return const MainScreen();
-      }
-      return const LoginScreen();
-    });
-  }
-}
-// ********************************************
