@@ -17,6 +17,10 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   int? _selectedDate; // لم يعد يحتاج لقيمة وهمية
   bool _isLoading = false;
 
+  // New doctor selection variables
+  String? _selectedDoctorId;
+  String? _selectedDoctorName;
+
   // قائمة الخدمات
   final List<Map<String, dynamic>> _services = [
     {'title': 'Regular Checkup', 'duration': '30 min', 'price': '75', 'doctor': 'Dr. Sarah Johnson'},
@@ -53,10 +57,10 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
   // دالة التنقل والمتابعة (مع حفظ/تعديل البيانات في Firestore)
   void _continueToNextStep() async {
-    if (_selectedServiceIndex == null || _selectedDate == null) {
-      if(mounted) {
+    if (_selectedServiceIndex == null || _selectedDate == null || _selectedDoctorId == null) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a service and a date to continue.')),
+          const SnackBar(content: Text('Please select a service, a doctor and a date to continue.')),
         );
       }
       return;
@@ -64,7 +68,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      if(mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You must be logged in to book an appointment.')),
         );
@@ -78,18 +82,22 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
     try {
       final selectedService = _services[_selectedServiceIndex!];
-      final appointmentTime = '9:41 AM (Temp)'; 
+      final appointmentTime = '9:41 AM (Temp)';
       final selectedDateString = 'April $_selectedDate, 2025';
+
+      // include doctorId and doctor name (fallback to service doctor if name null)
+      final doctorNameToSave = _selectedDoctorName ?? selectedService['doctor'];
 
       final appointmentData = {
         'userId': user.uid,
         'serviceName': selectedService['title'],
-        'doctor': selectedService['doctor'],
+        'doctor': doctorNameToSave,
+        'doctorId': _selectedDoctorId,
         'date': selectedDateString,
         'time': appointmentTime,
         'duration': selectedService['duration'],
         'price': selectedService['price'],
-        'status': _isEditing ? 'Rescheduled' : 'Pending', // تحديث الحالة عند التعديل
+        'status': _isEditing ? 'Rescheduled' : 'Pending',
         'lastUpdated': FieldValue.serverTimestamp(),
       };
 
@@ -100,34 +108,35 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             .doc(_initialAppointment!.id)
             .update(appointmentData);
 
-        if(mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Appointment successfully rescheduled!')),
-            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Appointment successfully rescheduled!')),
+          );
         }
       } else {
         // ********** وضع الإنشاء الجديد (Add) **********
-        await FirebaseFirestore.instance.collection('appointments').add(appointmentData);
+        final dataToAdd = Map<String, dynamic>.from(appointmentData);
+        dataToAdd['createdAt'] = FieldValue.serverTimestamp();
+        await FirebaseFirestore.instance.collection('appointments').add(dataToAdd);
 
-        if(mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Appointment successfully booked!')),
-            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Appointment successfully booked!')),
+          );
         }
       }
 
-      if(mounted) {
+      if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
       }
-
     } catch (e) {
-      if(mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Operation failed: $e. Check Firebase Security Rules.'), backgroundColor: Colors.red),
         );
       }
     } finally {
-      if(mounted) {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
@@ -172,6 +181,10 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                 ),
                 const SizedBox(height: 15),
                 _buildServiceList(),
+
+                // <-- inserted doctor dropdown
+                const SizedBox(height: 12),
+                _buildDoctorDropdown(),
                 const SizedBox(height: 30),
 
                 // ********** قسم اختيار التاريخ **********
@@ -295,6 +308,74 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           ),
         );
       }),
+    );
+  }
+
+  // Doctor dropdown streamed from Firestore
+  Widget _buildDoctorDropdown() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('doctors')
+          .orderBy('name')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: LinearProgressIndicator(color: kPrimaryColor),
+          );
+        }
+        
+        if (snapshot.hasError) {
+          return Text('Error loading doctors: ${snapshot.error}');
+        }
+        
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return const Text(
+            'No doctors available. Please contact the clinic.',
+            style: TextStyle(color: Colors.red),
+          );
+        }
+        
+        return DropdownButtonFormField<String>(
+          value: _selectedDoctorId,
+          decoration: const InputDecoration(
+            labelText: 'Choose Doctor',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.medical_services),
+          ),
+          items: docs.map((doc) {
+            final data = doc.data();
+            final name = (data['name'] ?? 'Unknown').toString();
+            final specialty = (data['specialty'] ?? '').toString();
+            return DropdownMenuItem<String>(
+              value: doc.id,
+              child: Text(
+                specialty.isNotEmpty ? '$name – $specialty' : name,
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedDoctorId = value;
+              if (value != null) {
+                final chosenDoc = docs.firstWhere((d) => d.id == value);
+                _selectedDoctorName =
+                    (chosenDoc.data()['name'] ?? 'Unknown').toString();
+              } else {
+                _selectedDoctorName = null;
+              }
+            });
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please choose a doctor';
+            }
+            return null;
+          },
+        );
+      },
     );
   }
 
