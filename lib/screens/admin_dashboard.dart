@@ -1,10 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import '../constants.dart';
 import 'main_screen.dart';
 import 'login_screen.dart';
+import '../main.dart';
+
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -540,6 +545,9 @@ class _MiniStatTile extends StatelessWidget {
 /// =======================
 /// 1) تبويب المواعيد (Appointments) – تصميم حديث
 /// =======================
+/// =======================
+/// 1) تبويب المواعيد (Appointments) – مع زر Export PDF
+/// =======================
 class _AppointmentsTab extends StatefulWidget {
   const _AppointmentsTab({super.key});
 
@@ -597,17 +605,130 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
     }
   }
 
+  /// ====== NEW: توليد تقرير اليوم على شكل PDF ومشاركته ======
+  Future<void> _exportTodayReportAsPdf(BuildContext context) async {
+    try {
+      final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      final endOfToday = startOfToday.add(const Duration(days: 1));
+
+      // نجيب مواعيد اليوم من Firestore باستخدام createdAt
+      final snap = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('createdAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
+          .where('createdAt',
+              isLessThan: Timestamp.fromDate(endOfToday))
+          .orderBy('createdAt')
+          .get();
+
+      if (snap.docs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No appointments for today to export'),
+          ),
+        );
+        return;
+      }
+
+      // نبني الـ PDF
+      final pdf = pw.Document();
+      final dateText =
+          '${startOfToday.year}-${startOfToday.month.toString().padLeft(2, '0')}-${startOfToday.day.toString().padLeft(2, '0')}';
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context ctx) {
+            return [
+              pw.Text(
+                'Daily Appointments Report',
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Date: $dateText',
+                style: pw.TextStyle(fontSize: 12),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Table.fromTextArray(
+                headers: const [
+                  'Time',
+                  'Patient',
+                  'Doctor',
+                  'Service',
+                  'Status',
+                  'Price',
+                ],
+                data: snap.docs.map((doc) {
+                  final data = doc.data();
+                  final patientName =
+                      (data['patientName'] ?? 'Unknown').toString();
+                  final doctorName =
+                      (data['doctor'] ?? 'Unknown').toString();
+                  final service =
+                      (data['serviceName'] ?? '-').toString();
+                  final status =
+                      (data['status'] ?? 'Pending').toString();
+                  final time = (data['time'] ?? '-').toString();
+                  final price = (data['price'] ?? '').toString();
+
+                  return [
+                    time,
+                    patientName,
+                    doctorName,
+                    service,
+                    status,
+                    price.isNotEmpty ? '\$$price' : '',
+                  ];
+                }).toList(),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  fontSize: 10,
+                ),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColor.fromInt(0xFFE0E0E0),
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(1.2),
+                  1: const pw.FlexColumnWidth(2),
+                  2: const pw.FlexColumnWidth(2),
+                  3: const pw.FlexColumnWidth(2),
+                  4: const pw.FlexColumnWidth(1.3),
+                  5: const pw.FlexColumnWidth(1),
+                },
+              ),
+            ];
+          },
+        ),
+      );
+
+      final bytes = await pdf.save();
+
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'daily_appointments_$dateText.pdf',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export PDF: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            kPrimaryColor.withOpacity(isDark ? 0.12 : 0.06),
-            theme.scaffoldBackgroundColor,
+            kPrimaryColor.withOpacity(0.06),
+            const Color.fromARGB(255, 255, 255, 255),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -673,7 +794,32 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+              // زر Export على يمين الفلاتر
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Today\'s appointments report',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () => _exportTodayReportAsPdf(context),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                      label: const Text(
+                        'Export PDF',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: kPrimaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
               // فلاتر الحالة
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -730,18 +876,18 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: theme.cardColor,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: isDark
-                                    ? Colors.black.withOpacity(0.35)
-                                    : Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
+  color: Theme.of(context).cardColor,
+  borderRadius: BorderRadius.circular(16),
+  boxShadow: [
+    if (Theme.of(context).brightness == Brightness.light)
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 8,
+        offset: const Offset(0, 3),
+      ),
+  ],
+),
+
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -753,8 +899,7 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color:
-                                          kPrimaryColor.withOpacity(0.12),
+                                      color: kPrimaryColor.withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: const Icon(
@@ -770,17 +915,17 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                       children: [
                                         Text(
                                           patientName,
-                                          style: theme.textTheme.titleMedium?.copyWith(
+                                          style: const TextStyle(
+                                            fontSize: 15,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                         if (patientEmail.isNotEmpty)
                                           Text(
                                             patientEmail,
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: theme.textTheme.bodySmall?.color
-                                                      ?.withOpacity(isDark ? 0.75 : 0.6) ??
-                                                  (isDark ? Colors.white70 : Colors.grey),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
                                             ),
                                           ),
                                       ],
@@ -802,25 +947,21 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                             _updateStatus(
                                                 context, ref, 'Pending');
                                           } else if (value == 'delete') {
-                                            _deleteAppointment(
-                                                context, ref);
+                                            _deleteAppointment(context, ref);
                                           }
                                         },
                                         itemBuilder: (context) => const [
                                           PopupMenuItem(
                                             value: 'approve',
-                                            child:
-                                                Text('Mark as Approved'),
+                                            child: Text('Mark as Approved'),
                                           ),
                                           PopupMenuItem(
                                             value: 'cancel',
-                                            child:
-                                                Text('Mark as Canceled'),
+                                            child: Text('Mark as Canceled'),
                                           ),
                                           PopupMenuItem(
                                             value: 'pending',
-                                            child:
-                                                Text('Mark as Pending'),
+                                            child: Text('Mark as Pending'),
                                           ),
                                           PopupMenuItem(
                                             value: 'delete',
@@ -842,7 +983,10 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                   Expanded(
                                     child: Text(
                                       '$doctor • $service',
-                                      style: theme.textTheme.bodyMedium,
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+  fontSize: 13,
+),
+
                                     ),
                                   ),
                                 ],
@@ -856,7 +1000,10 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                     const SizedBox(width: 6),
                                     Text(
                                       duration,
-                                      style: theme.textTheme.bodyMedium,
+                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+  fontSize: 13,
+),
+
                                     ),
                                   ],
                                 ),
@@ -868,7 +1015,10 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                   const SizedBox(width: 6),
                                   Text(
                                     dateStr,
-                                    style: theme.textTheme.bodyMedium,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+  fontSize: 13,
+),
+
                                   ),
                                   const SizedBox(width: 10),
                                   const Icon(Icons.access_time_rounded,
@@ -876,7 +1026,10 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                   const SizedBox(width: 4),
                                   Text(
                                     timeStr,
-                                    style: theme.textTheme.bodyMedium,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+  fontSize: 13,
+),
+
                                   ),
                                 ],
                               ),
@@ -889,7 +1042,10 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
                                     const SizedBox(width: 6),
                                     Text(
                                       '\$$price',
-                                      style: theme.textTheme.bodyMedium,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+  fontSize: 13,
+),
+
                                     ),
                                   ],
                                 ),
@@ -910,20 +1066,16 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
   }
 
   Widget _buildFilterChip(String label) {
-    final theme = Theme.of(context);
     final bool selected = _statusFilter == label;
-    final bool isDark = theme.brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
         label: Text(label),
         selected: selected,
-        selectedColor: kPrimaryColor.withOpacity(isDark ? 0.28 : 0.18),
-        backgroundColor: theme.cardColor,
+        selectedColor: kPrimaryColor.withOpacity(0.18),
+        backgroundColor: Colors.white,
         labelStyle: TextStyle(
-          color: selected
-              ? kPrimaryColor
-              : theme.textTheme.bodySmall?.color ?? Colors.grey[700],
+          color: selected ? kPrimaryColor : Colors.grey[700],
           fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
           fontSize: 12,
         ),
@@ -937,44 +1089,40 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
   }
 }
 
-/// Badge صغيرة ملوّنة حسب حالة الموعد
+/// Badge widget for appointment status
 class _StatusBadge extends StatelessWidget {
   final String status;
   const _StatusBadge({required this.status});
 
+  Color _getColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'canceled':
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-    final lower = status.toLowerCase();
-    Color bg;
-    Color fg;
-    String text = status;
-
-    if (lower == 'approved') {
-      bg = isDark ? Colors.green.withOpacity(0.25) : Colors.green.shade50;
-      fg = isDark ? Colors.greenAccent.shade200 : Colors.green.shade700;
-    } else if (lower == 'canceled' || lower == 'cancelled') {
-      bg = isDark ? Colors.red.withOpacity(0.25) : Colors.red.shade50;
-      fg = isDark ? Colors.redAccent.shade200 : Colors.red.shade700;
-    } else {
-      bg = isDark ? Colors.orange.withOpacity(0.25) : Colors.orange.shade50;
-      fg = isDark ? Colors.orangeAccent.shade200 : Colors.orange.shade700;
-      if (lower.isEmpty) text = 'Pending';
-    }
-
+    final color = _getColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
+        color: color.withOpacity(0.13),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        text,
+        status,
         style: TextStyle(
-          color: fg,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
         ),
       ),
     );
@@ -1495,8 +1643,8 @@ class _AdminSettingsTab extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            kPrimaryColor.withOpacity(0.06),
-            Colors.white,
+            kPrimaryColor.withOpacity(isDark ? 0.12 : 0.06),
+            theme.scaffoldBackgroundColor,
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -1508,8 +1656,7 @@ class _AdminSettingsTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: theme.cardColor,
                 borderRadius: BorderRadius.circular(18),
@@ -1552,7 +1699,9 @@ class _AdminSettingsTab extends StatelessWidget {
                         Text(
                           user?.email ?? '-',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.textTheme.bodySmall?.color?.withOpacity(isDark ? 0.75 : 0.6) ??
+                            color: theme.textTheme.bodySmall?.color?.withOpacity(
+                                  isDark ? 0.75 : 0.6,
+                                ) ??
                                 (isDark ? Colors.white70 : Colors.grey),
                           ),
                         ),
@@ -1563,6 +1712,18 @@ class _AdminSettingsTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              activeColor: kPrimaryColor,
+              title: const Text('Dark Mode'),
+              subtitle: const Text(
+                'Use dark theme for the admin panel and app',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: isDark,
+              onChanged: (value) => MyApp.of(context)?.setThemeMode(value),
+            ),
+            const SizedBox(height: 16),
             const Text(
               'Actions',
               style: TextStyle(
