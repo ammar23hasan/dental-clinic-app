@@ -54,6 +54,8 @@ dependencies:
   cloud_firestore: ^6.0.3
   flutter_localizations:
     sdk: flutter
+  pdf: ^3.11.3
+  printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:
@@ -73,6 +75,8 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/images/app_icon.png" # <--- مسار أيقونتك
   min_sdk_android: 21 # الحد الأدنى لإصدار Android المدعوم (عادة 21)
+  pdf: ^3.11.0
+  printing: ^5.13.0
 
   firebase_core: ^2.27.0   # ربط التطبيق بالمشروع
   firebase_auth: ^4.17.9  # المصادقة (التسجيل والدخول)
