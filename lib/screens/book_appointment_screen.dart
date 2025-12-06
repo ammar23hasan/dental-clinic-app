@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // للوصول لمعرّف المستخدم
-import 'package:cloud_firestore/cloud_firestore.dart'; // للوصول لقاعدة البيانات
-import '../constants.dart'; // ملف الثوابت (يجب أن يحتوي على kPrimaryColor)
-import '../models/appointment_model.dart'; // <--- استيراد نموذج الموعد
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants.dart';
+import '../models/appointment_model.dart';
+import 'package:characters/characters.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({super.key});
@@ -13,54 +14,110 @@ class BookAppointmentScreen extends StatefulWidget {
 
 class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   final Color primaryColor = kPrimaryColor;
+
   int? _selectedServiceIndex;
-  int? _selectedDate; // لم يعد يحتاج لقيمة وهمية
+
+  // ✅ التاريخ والوقت كـ state حقيقي
+  DateTime _currentMonth =
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime? _selectedDate;
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 41);
+
   bool _isLoading = false;
 
-  // New doctor selection variables
+  // اختيار طبيب
   String? _selectedDoctorId;
   String? _selectedDoctorName;
 
-  // قائمة الخدمات
-  final List<Map<String, dynamic>> _services = [
-    {'title': 'Regular Checkup', 'duration': '30 min', 'price': '75', 'doctor': 'Dr. Sarah Johnson'},
-    {'title': 'Dental Cleaning', 'duration': '45 min', 'price': '120', 'doctor': 'Dr. Michael Chen'},
-    {'title': 'Teeth Whitening', 'duration': '60 min', 'price': '200', 'doctor': 'Dr. Emily Brown'},
-    {'title': 'Root Canal', 'duration': '90 min', 'price': '450', 'doctor': 'Dr. Alex Smith'},
+  // أسماء الشهور لعرضها في الهيدر والتخزين في Firestore
+  static const List<String> _monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
-  // لتهيئة الحقول في حالة التعديل
+  final List<Map<String, dynamic>> _services = [
+    {
+      'title': 'Regular Checkup',
+      'duration': '30 min',
+      'price': '75',
+      'doctor': 'Dr. Sarah Johnson'
+    },
+    {
+      'title': 'Dental Cleaning',
+      'duration': '45 min',
+      'price': '120',
+      'doctor': 'Dr. Michael Chen'
+    },
+    {
+      'title': 'Teeth Whitening',
+      'duration': '60 min',
+      'price': '200',
+      'doctor': 'Dr. Emily Brown'
+    },
+    {
+      'title': 'Root Canal',
+      'duration': '90 min',
+      'price': '450',
+      'doctor': 'Dr. Alex Smith'
+    },
+  ];
+
   Appointment? _initialAppointment;
   bool _isEditing = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
-    // جلب المعاملات (arguments) عند بناء الشاشة
     final args = ModalRoute.of(context)?.settings.arguments;
-    
-    // التحقق من أننا في وضع التعديل (Reschedule) ولم يتم تهيئة القيم بعد
+
     if (args is Appointment && !_isEditing) {
       _initialAppointment = args;
       _isEditing = true;
-      
-      // تعيين القيم الافتراضية لحقول التعديل
-      _selectedServiceIndex = _services.indexWhere((s) => s['title'] == _initialAppointment!.service);
-      
-      // هنا يمكنك تحليل التاريخ من الـ String إلى القيمة الصحيحة لـ _selectedDate
-      // لكن سنترك القيمة كما هي لغرض استكمال التنفيذ الوظيفي
+
+      // خدمة البداية
+      _selectedServiceIndex =
+          _services.indexWhere((s) => s['title'] == _initialAppointment!.service);
+
+      // بإمكانك لاحقاً تحليل التاريخ من السترينغ إلى DateTime
+      // حاليا نجبر المستخدم يختار تاريخ جديد
 
       setState(() {});
     }
   }
 
-  // دالة التنقل والمتابعة (مع حفظ/تعديل البيانات في Firestore)
+  // =====================  Helpers  =====================
+
+  String _formatDateForFirestore(DateTime date) {
+    final monthName = _monthNames[date.month - 1];
+    return '$monthName ${date.day}, ${date.year}';
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  // =====================  متابعة/حفظ الموعد  =====================
+
   void _continueToNextStep() async {
-    if (_selectedServiceIndex == null || _selectedDate == null || _selectedDoctorId == null) {
+    if (_selectedServiceIndex == null ||
+        _selectedDate == null ||
+        _selectedDoctorId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a service, a doctor and a date to continue.')),
+          const SnackBar(
+            content:
+                Text('Please select a service, a doctor and a date to continue.'),
+          ),
         );
       }
       return;
@@ -70,7 +127,9 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('You must be logged in to book an appointment.')),
+          const SnackBar(
+            content: Text('You must be logged in to book an appointment.'),
+          ),
         );
       }
       return;
@@ -82,14 +141,38 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
     try {
       final selectedService = _services[_selectedServiceIndex!];
-      final appointmentTime = '9:41 AM (Temp)';
-      final selectedDateString = 'April $_selectedDate, 2025';
+      final date = _selectedDate!;
+      final selectedDateString = _formatDateForFirestore(date);
+      final appointmentTime = _selectedTime.format(context);
 
       // include doctorId and doctor name (fallback to service doctor if name null)
       final doctorNameToSave = _selectedDoctorName ?? selectedService['doctor'];
 
+      // ⬅️ جديد: نجيب اسم المريض من users
+      String patientName = 'Unknown patient';
+      String patientEmail = user?.email ?? '';
+
+      if (user != null) {
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          final userData = userDoc.data();
+          if (userData != null) {
+            patientName = (userData['fullName'] ?? patientName).toString();
+            patientEmail = (userData['email'] ?? patientEmail).toString();
+          }
+        } catch (_) {
+          // If fetching fails, keep defaults but do not block the booking.
+        }
+      }
+
       final appointmentData = {
-        'userId': user.uid,
+        'userId': user?.uid ?? '',
+        'patientName': patientName,        // ⬅️ جديد
+        'patientEmail': patientEmail,      // ⬅️ جديد
         'serviceName': selectedService['title'],
         'doctor': doctorNameToSave,
         'doctorId': _selectedDoctorId,
@@ -102,7 +185,6 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       };
 
       if (_isEditing && _initialAppointment != null) {
-        // ********** وضع التعديل (Update) **********
         await FirebaseFirestore.instance
             .collection('appointments')
             .doc(_initialAppointment!.id)
@@ -110,18 +192,24 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Appointment successfully rescheduled!')),
+            const SnackBar(
+              content: Text('Appointment successfully rescheduled!'),
+            ),
           );
         }
       } else {
-        // ********** وضع الإنشاء الجديد (Add) **********
         final dataToAdd = Map<String, dynamic>.from(appointmentData);
         dataToAdd['createdAt'] = FieldValue.serverTimestamp();
-        await FirebaseFirestore.instance.collection('appointments').add(dataToAdd);
+
+        await FirebaseFirestore.instance
+            .collection('appointments')
+            .add(dataToAdd);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Appointment successfully booked!')),
+            const SnackBar(
+              content: Text('Appointment successfully booked!'),
+            ),
           );
         }
       }
@@ -132,7 +220,11 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Operation failed: $e. Check Firebase Security Rules.'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+                'Operation failed: $e. Check Firebase Security Rules.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -144,97 +236,90 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     }
   }
 
+  // =====================  UI  =====================
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            _isEditing ? 'Reschedule Appointment' : 'Book Appointment', // <--- عنوان ديناميكي
+            _isEditing ? 'Reschedule Appointment' : 'Book Appointment',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           centerTitle: true,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
           ),
         ),
         body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const SizedBox(height: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
 
-                // ********** قسم اختيار الخدمة **********
-                const Text(
-                  'Select Service',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+              const Text(
+                'Select Service',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
                 ),
-                const SizedBox(height: 15),
-                _buildServiceList(),
+              ),
+              const SizedBox(height: 15),
+              _buildServiceList(),
 
-                // <-- inserted doctor dropdown
-                const SizedBox(height: 12),
-                _buildDoctorDropdown(),
-                const SizedBox(height: 30),
+              const SizedBox(height: 12),
+              _buildDoctorDropdown(),
+              const SizedBox(height: 30),
 
-                // ********** قسم اختيار التاريخ **********
-                const Text(
-                  'Select Date',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+              const Text(
+                'Select Date',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
                 ),
-                const SizedBox(height: 15),
-                _buildCalendar(),
-                const SizedBox(height: 30),
+              ),
+              const SizedBox(height: 15),
+              _buildCalendar(),
+              const SizedBox(height: 30),
 
-                // ********** قسم اختيار الوقت **********
-                _buildTimeSelector(),
-                const SizedBox(height: 30),
+              _buildTimeSelector(),
+              const SizedBox(height: 30),
 
-                // ********** زر المتابعة **********
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _continueToNextStep,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 55),
-                    backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
-                    textStyle: const TextStyle(fontSize: 18),
-                  ),
-                  child: _isLoading 
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          _isEditing ? 'Confirm Reschedule' : 'Continue', // <--- نص ديناميكي
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _continueToNextStep,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 55),
+                  backgroundColor: primaryColor,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0)),
+                  textStyle: const TextStyle(fontSize: 18),
+                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                        _isEditing ? 'Confirm Reschedule' : 'Continue',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
                         ),
-                ),
-                
-                // مسافة سفلية
-                const SizedBox(height: 40),
-              ],
-            ),
+                      ),
+              ),
+              const SizedBox(height: 40),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // -------------------------------------------------------------------
-  // الدوال المساعدة
-  // -------------------------------------------------------------------
-
+  // ------------ قائمة الخدمات ------------
   Widget _buildServiceList() {
     return Column(
       children: List.generate(_services.length, (index) {
@@ -305,13 +390,13 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                 ],
               ),
             ),
-          ),
+          )
         );
       }),
     );
   }
 
-  // Doctor dropdown streamed from Firestore
+  // ------------ قائمة الأطباء ------------
   Widget _buildDoctorDropdown() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
@@ -325,11 +410,11 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             child: LinearProgressIndicator(color: kPrimaryColor),
           );
         }
-        
+
         if (snapshot.hasError) {
           return Text('Error loading doctors: ${snapshot.error}');
         }
-        
+
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
           return const Text(
@@ -337,7 +422,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             style: TextStyle(color: Colors.red),
           );
         }
-        
+
         return DropdownButtonFormField<String>(
           value: _selectedDoctorId,
           decoration: const InputDecoration(
@@ -368,53 +453,36 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               }
             });
           },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please choose a doctor';
-            }
-            return null;
-          },
         );
       },
     );
   }
 
+  // ------------ التقويم الديناميكي ------------
   Widget _buildCalendar() {
-    const List<int> days = [
-      0,
-      0,
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15,
-      16,
-      17,
-      18,
-      19,
-      20,
-      21,
-      22,
-      23,
-      24,
-      25,
-      26,
-      27,
-      28,
-      29,
-      30,
-    ];
+    // بداية الشهر الحالي
+    final firstDayOfMonth =
+        DateTime(_currentMonth.year, _currentMonth.month, 1);
+    // عدد الأيام في الشهر
+    final daysInMonth =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    // offset لبداية الأسبوع (نجعل الأحد = 0)
+    final startOffset = firstDayOfMonth.weekday % 7;
+
+    final List<DateTime?> items = List.generate(
+      startOffset + daysInMonth,
+      (index) {
+        if (index < startOffset) return null;
+        final day = index - startOffset + 1;
+        return DateTime(_currentMonth.year, _currentMonth.month, day);
+      },
+    );
+
+    final monthLabel =
+        '${_monthNames[_currentMonth.month - 1]} ${_currentMonth.year}';
+
+    final dowColor =
+        Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -429,9 +497,9 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'April 2025',
-                style: TextStyle(
+              Text(
+                monthLabel,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
@@ -439,34 +507,57 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               ),
               Row(
                 children: [
-                  Icon(Icons.arrow_back_ios, color: Colors.grey, size: 18),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _currentMonth = DateTime(
+                          _currentMonth.year,
+                          _currentMonth.month - 1,
+                          1,
+                        );
+                      });
+                    },
+                    child: Icon(Icons.arrow_back_ios,
+                        color: Colors.grey.shade600, size: 18),
+                  ),
                   const SizedBox(width: 10),
-                  Icon(Icons.arrow_forward_ios, color: primaryColor, size: 18),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _currentMonth = DateTime(
+                          _currentMonth.year,
+                          _currentMonth.month + 1,
+                          1,
+                        );
+                      });
+                    },
+                    child: Icon(Icons.arrow_forward_ios,
+                        color: primaryColor, size: 18),
+                  ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 15),
-          // أيام الأسبوع
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _DayOfWeekLabel('SUN', Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-              _DayOfWeekLabel('MON', Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-              _DayOfWeekLabel('TUE', Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-              _DayOfWeekLabel('WED', Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-              _DayOfWeekLabel('THU', Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-              _DayOfWeekLabel('FRI', Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-              _DayOfWeekLabel('SAT', Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+              _DayOfWeekLabel('SUN', dowColor),
+              _DayOfWeekLabel('MON', dowColor),
+              _DayOfWeekLabel('TUE', dowColor),
+              _DayOfWeekLabel('WED', dowColor),
+              _DayOfWeekLabel('THU', dowColor),
+              _DayOfWeekLabel('FRI', dowColor),
+              _DayOfWeekLabel('SAT', dowColor),
             ],
           ),
           const SizedBox(height: 10),
 
-          // شبكة التواريخ
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: days.length,
+            itemCount: items.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               childAspectRatio: 1.0,
@@ -474,15 +565,16 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               crossAxisSpacing: 8,
             ),
             itemBuilder: (context, index) {
-              final day = days[index];
-              if (day == 0) return const SizedBox.shrink();
+              final date = items[index];
+              if (date == null) return const SizedBox.shrink();
 
-              final isSelected = day == _selectedDate;
+              final isSelected =
+                  _selectedDate != null && _isSameDay(date, _selectedDate!);
 
               return InkWell(
                 onTap: () {
                   setState(() {
-                    _selectedDate = day;
+                    _selectedDate = date;
                   });
                 },
                 child: Container(
@@ -492,10 +584,11 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Text(
-                    day.toString(),
+                    date.day.toString(),
                     style: TextStyle(
                       color: isSelected ? Colors.white : null,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -507,13 +600,15 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     );
   }
 
+  // ------------ اختيار الوقت ------------
   Widget _buildTimeSelector() {
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 20.0),
+    final timeText = _selectedTime.format(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
+          const Text(
             'Time',
             style: TextStyle(
               fontSize: 18,
@@ -521,9 +616,28 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               color: Colors.black,
             ),
           ),
-          Text(
-            '9:41 AM', // مؤقت - يمكن استبداله بـ TimePicker لاحقاً
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+          InkWell(
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: _selectedTime,
+              );
+              if (picked != null) {
+                setState(() {
+                  _selectedTime = picked;
+                });
+              }
+            },
+            child: Row(
+              children: [
+                Text(
+                  timeText,
+                  style: const TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.access_time, color: Colors.grey),
+              ],
+            ),
           ),
         ],
       ),
@@ -531,11 +645,11 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   }
 }
 
-// عنصر مساعد لاسم يوم الأسبوع
+// label لأيام الأسبوع
 class _DayOfWeekLabel extends StatelessWidget {
   final String label;
   final Color color;
-  const _DayOfWeekLabel(this.label, this.color);
+  const _DayOfWeekLabel(this.label, this.color, {super.key});
 
   @override
   Widget build(BuildContext context) {

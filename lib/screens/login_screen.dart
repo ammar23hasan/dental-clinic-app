@@ -25,85 +25,105 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // دالة تسجيل الدخول باستخدام Firebase
-Future<void> _login() async {
-  if (!_formKey.currentState!.validate()) return;
-
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    // 1) تسجيل الدخول
-    final credential =
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
-
-    final user = credential.user;
-    if (user == null) {
-      throw FirebaseAuthException(
-        code: 'no-user',
-        message: 'User is null after signIn',
+  Future<void> _login() async {
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter email and password')),
       );
+      return;
     }
 
-    print('LOGIN SUCCESS, UID = ${user.uid}');
+    setState(() {
+      _isLoading = true;
+    });
 
-    // 2) قراءة role من Firestore
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-
-    String role = 'Patient';
-    if (doc.exists) {
-      final data = doc.data();
-      role = (data?['role'] ?? 'Patient').toString();
-    }
-
-    print('USER ROLE FROM FIRESTORE = $role');
-
-    // 3) التوجيه حسب الدور
-    if (role.toLowerCase() == 'admin') {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/adminDashboard',
-        (route) => false,
+    try {
+      // 1) تسجيل الدخول
+      final credential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
-    } else {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/main',
-        (route) => false,
+
+      final user = credential.user;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'user-null',
+          message: 'User object is null after login',
+        );
+      }
+
+      print('LOGIN SUCCESS, UID = ${user.uid}');
+
+      // 2) قراءة الدور من Firestore
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      String role = 'Patient'; // default
+      if (doc.exists) {
+        final data = doc.data();
+        if (data != null && data['role'] != null) {
+          role = data['role'].toString();
+        }
+      }
+
+      print('ROLE FROM FIRESTORE = $role');
+
+      // 3) التوجيه حسب الدور
+      final lower = role.toLowerCase();
+
+      if (lower == 'admin') {
+        // أدمن → لوحة تحكم الأدمن
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/adminDashboard',
+          (route) => false,
+        );
+      } else if (lower == 'doctor') {
+        // دكتور → لوحة تحكم الدكتور (تدعم التابليت)
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/doctorDashboard',
+          (route) => false,
+        );
+      } else {
+        // أي دور آخر → التطبيق العادي (المريض)
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/main',
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      print('LOGIN ERROR = ${e.code} - ${e.message}');
+
+      String message = 'Login failed. Please try again.';
+      if (e.code == 'user-not-found') {
+        message = 'No user found for this email.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
       );
-    }
-  } on FirebaseAuthException catch (e) {
-    print('LOGIN ERROR = ${e.code} - ${e.message}');
-
-    String message = 'Login failed. Please try again.';
-    if (e.code == 'user-not-found') {
-      message = 'No user found for this email.';
-    } else if (e.code == 'wrong-password') {
-      message = 'Wrong password.';
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  } catch (e) {
-    print('UNEXPECTED LOGIN ERROR = $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Something went wrong.')),
-    );
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+    } catch (e) {
+      print('UNEXPECTED LOGIN ERROR = $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Something went wrong.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-}
+
 
 
   @override
