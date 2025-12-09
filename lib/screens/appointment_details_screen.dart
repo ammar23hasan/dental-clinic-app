@@ -23,7 +23,6 @@ class AppointmentDetailsScreen extends StatelessWidget {
             onPressed: () => Navigator.of(ctx).pop(),
           ),
           ElevatedButton(
-            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.white)),
             onPressed: () async {
               Navigator.of(ctx).pop(); // إغلاق نافذة التأكيد
 
@@ -50,6 +49,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

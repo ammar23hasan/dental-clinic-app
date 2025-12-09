@@ -3,8 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:characters/characters.dart';
+import 'package:provider/provider.dart';
 
 import '../constants.dart';
+import '../providers/theme_provider.dart';
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
@@ -147,7 +149,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
 /// 1) تبويب Overview للطبيب
 /// ============================
 class _DoctorOverviewTab extends StatelessWidget {
-  const _DoctorOverviewTab({super.key});
+  const _DoctorOverviewTab();
 
   DateTime? _parseDate(dynamic raw) {
     if (raw is Timestamp) return raw.toDate();
@@ -427,10 +429,10 @@ class _DoctorOverviewTab extends StatelessWidget {
           );
         },
       ),
-    );  
-      
+    ); 
+    }  
     }
-  }
+
 
 
 class _DoctorStatCard extends StatelessWidget {
@@ -439,7 +441,6 @@ class _DoctorStatCard extends StatelessWidget {
   final IconData icon;
 
   const _DoctorStatCard({
-    super.key,
     required this.label,
     required this.value,
     required this.icon,
@@ -482,7 +483,6 @@ class _MiniBarChart extends StatelessWidget {
   final Map<String, int> dailyCounts;
 
   const _MiniBarChart({
-    super.key,
     required this.startDate,
     required this.dailyCounts,
   });
@@ -548,7 +548,7 @@ class _MiniBarChart extends StatelessWidget {
 /// 2) تبويب المواعيد للطبيب (فعّال)
 /// ============================
 class _DoctorAppointmentsTab extends StatelessWidget {
-  const _DoctorAppointmentsTab({super.key});
+  const _DoctorAppointmentsTab();
 
   Future<String?> _getDoctorName() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -730,7 +730,7 @@ class _DoctorAppointmentsTab extends StatelessWidget {
 /// 3) تبويب المرضى للطبيب (Patients)
 /// ============================
 class _DoctorPatientsTab extends StatelessWidget {
-  const _DoctorPatientsTab({super.key});
+  const _DoctorPatientsTab();
 
   Future<String?> _getDoctorName() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -1009,21 +1009,345 @@ class _DoctorPatientSummary {
 }
 
 
-/// ============================
+
+/// ============================/// ============================
 /// 4) تبويب إعدادات الطبيب
 /// ============================
-class _DoctorSettingsTab extends StatelessWidget {
+class _DoctorSettingsTab extends StatefulWidget {
   const _DoctorSettingsTab({super.key});
 
   @override
+  State<_DoctorSettingsTab> createState() => _DoctorSettingsTabState();
+}
+
+class _DoctorSettingsTabState extends State<_DoctorSettingsTab> {
+  bool _notificationsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // TODO: لو حابب تجيب حالة الإشعارات من Firestore أو SharedPreferences
+  }
+
+  Future<void> _openEditProfile() async {
+    await Navigator.pushNamed(context, '/doctor-edit-profile');
+  }
+
+  void _toggleNotifications(bool value) async {
+    setState(() {
+      _notificationsEnabled = value;
+    });
+
+    // TODO: خزّن القيمة في Firestore أو SharedPreferences
+    // مثال:
+    // final user = FirebaseAuth.instance.currentUser;
+    // if (user != null) {
+    //   await FirebaseFirestore.instance
+    //       .collection('users')
+    //       .doc(user.uid)
+    //       .update({'notificationsEnabled': value});
+    // }
+  }
+
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+        (route) => false,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Doctor Settings\n(Profile, notifications, preferences)',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            kPrimaryColor.withOpacity(isDark ? 0.18 : 0.10),
+            Theme.of(context).scaffoldBackgroundColor,
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const SizedBox(height: 8),
+          _buildProfileHeader(),
+          const SizedBox(height: 24),
+
+          const Text(
+            'General',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Edit profile
+          _SettingsTile(
+            icon: Icons.person_outline,
+            title: 'Edit profile',
+            subtitle: 'Update your personal information',
+            onTap: _openEditProfile,
+          ),
+
+          // Notifications
+          _SettingsSwitchTile(
+            icon: Icons.notifications_none,
+            title: 'Notifications',
+            subtitle: 'Appointment reminders & updates',
+            value: _notificationsEnabled,
+            onChanged: _toggleNotifications,
+          ),
+
+          const SizedBox(height: 24),
+          const Text(
+            'App',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Theme tile -> use ThemeProvider
+          _SettingsSwitchTile(
+            icon: Icons.dark_mode_outlined,
+            title: 'Theme',
+            subtitle: isDark ? 'Dark mode' : 'Light mode',
+            value: isDark,
+            onChanged: (value) {
+              final themeProvider =
+                  Provider.of<ThemeProvider>(context, listen: false);
+              themeProvider.toggleTheme(value);
+            },
+          ),
+
+          // Language tile (placeholder)
+          _SettingsTile(
+            icon: Icons.language_outlined,
+            title: 'Language',
+            subtitle: 'English / العربية (soon)',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Language switching will be available soon.'),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 32),
+
+          // Logout button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _logout,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: const Icon(Icons.logout),
+              label: const Text(
+                'Log out',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user?.uid)
+          .get(),
+      builder: (context, snapshot) {
+        String fullName = user?.email ?? 'Doctor';
+        String role = 'Doctor';
+
+        if (snapshot.hasData && snapshot.data!.data() != null) {
+          final data = snapshot.data!.data()!;
+          fullName = (data['fullName'] ?? fullName).toString();
+          role = (data['role'] ?? role).toString();
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: kPrimaryColor.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person,
+                  size: 30,
+                  color: kPrimaryColor,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fullName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      user?.email ?? '',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      role,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// بلاطات إعدادات عادية
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: kPrimaryColor.withOpacity(0.16),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: kPrimaryColor),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: onTap,
       ),
     );
   }
 }
 
+/// بلاطة فيها سويتش
+class _SettingsSwitchTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingsSwitchTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: kPrimaryColor.withOpacity(0.16),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: kPrimaryColor),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        trailing: Switch(
+          value: value,
+          activeColor: Colors.white,
+          activeTrackColor: kPrimaryColor,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}

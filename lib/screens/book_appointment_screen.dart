@@ -150,27 +150,25 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
       // ⬅️ جديد: نجيب اسم المريض من users
       String patientName = 'Unknown patient';
-      String patientEmail = user?.email ?? '';
+      String patientEmail = user.email ?? '';
 
-      if (user != null) {
-        try {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-          final userData = userDoc.data();
-          if (userData != null) {
-            patientName = (userData['fullName'] ?? patientName).toString();
-            patientEmail = (userData['email'] ?? patientEmail).toString();
-          }
-        } catch (_) {
-          // If fetching fails, keep defaults but do not block the booking.
+        final userData = userDoc.data();
+        if (userData != null) {
+          patientName = (userData['fullName'] ?? patientName).toString();
+          patientEmail = (userData['email'] ?? patientEmail).toString();
         }
+      } catch (_) {
+        // If fetching fails, keep defaults but do not block the booking.
       }
-
+    
       final appointmentData = {
-        'userId': user?.uid ?? '',
+        'userId': user.uid ?? '',
         'patientName': patientName,        // ⬅️ جديد
         'patientEmail': patientEmail,      // ⬅️ جديد
         'serviceName': selectedService['title'],
@@ -424,7 +422,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         }
 
         return DropdownButtonFormField<String>(
-          value: _selectedDoctorId,
+          initialValue: _selectedDoctorId,
           decoration: const InputDecoration(
             labelText: 'Choose Doctor',
             border: OutlineInputBorder(),
@@ -649,7 +647,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 class _DayOfWeekLabel extends StatelessWidget {
   final String label;
   final Color color;
-  const _DayOfWeekLabel(this.label, this.color, {super.key});
+  const _DayOfWeekLabel(this.label, this.color);
 
   @override
   Widget build(BuildContext context) {

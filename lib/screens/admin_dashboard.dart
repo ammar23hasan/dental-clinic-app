@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
 
 import '../constants.dart';
 import 'main_screen.dart';
 import 'login_screen.dart';
 import '../main.dart';
-
+import '../providers/theme_provider.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -23,31 +24,106 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
+    final bool isTablet = size.width >= 900; // same breakpoint as provided
 
-    final pages = [
-      const _OverviewTab(),       // NEW
-      const _AppointmentsTab(),
-      const _PatientsTab(),
-      const _DoctorsTab(),
-      const _AdminSettingsTab(),
+    // pages for tabs
+    final pages = const [
+      _OverviewTab(),
+      _AppointmentsTab(),
+      _PatientsTab(),
+      _DoctorsTab(),
+      _AdminSettingsTab(),
     ];
 
     final pageTitles = [
-      'Overview',                // NEW
+      'Overview',
       'Appointments',
       'Patients',
       'Doctors',
       'Admin Settings',
     ];
 
+    // Tablet layout: NavigationRail on the left
+    if (isTablet) {
+      return Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              extended: size.width >= 1150, // show labels on very wide screens
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              selectedIconTheme: const IconThemeData(color: kPrimaryColor),
+              selectedLabelTextStyle: const TextStyle(
+                color: kPrimaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.dashboard_customize_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: Text('Overview'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.event_note_outlined),
+                  selectedIcon: Icon(Icons.event_note),
+                  label: Text('Appointments'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.people_alt_outlined),
+                  selectedIcon: Icon(Icons.people_alt),
+                  label: Text('Patients'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.medical_services_outlined),
+                  selectedIcon: Icon(Icons.medical_services),
+                  label: Text('Doctors'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Settings'),
+                ),
+              ],
+            ),
+
+            // thin divider
+            Container(
+              width: 0.5,
+              color: Colors.grey.withOpacity(0.3),
+            ),
+
+            // content area
+            Expanded(
+              child: Scaffold(
+                appBar: AppBar(
+                  title: Text(
+                    pageTitles[_currentIndex],
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  centerTitle: false,
+                ),
+                body: pages[_currentIndex],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Mobile layout: bottom navigation bar
     return Scaffold(
       appBar: AppBar(
         title: Text(
           pageTitles[_currentIndex],
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: false,
       ),
       body: pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -94,7 +170,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 //
 
 class _OverviewTab extends StatefulWidget {
-  const _OverviewTab({super.key});
+  const _OverviewTab();
 
   @override
   State<_OverviewTab> createState() => _OverviewTabState();
@@ -397,40 +473,24 @@ class _OverviewTabState extends State<_OverviewTab> {
                 if (topDoctors.isNotEmpty)
                   Column(
                     children: topDoctors.map((entry) {
-                      final name = entry.key;
+                      final doctorName = entry.key;
                       final count = entry.value;
 
-                      return Container(
+                      return FancyCard(
+                        baseColor: kPrimaryColor,
                         margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDark
-                                  ? Colors.black.withOpacity(0.35)
-                                  : Colors.black.withOpacity(0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
                         child: Row(
                           children: [
                             Container(
                               width: 42,
                               height: 42,
                               decoration: BoxDecoration(
-                                color: kPrimaryColor.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: const Icon(
                                 Icons.medical_services_rounded,
-                                color: kPrimaryColor,
+                                color: Colors.white,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -439,18 +499,17 @@ class _OverviewTabState extends State<_OverviewTab> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    name,
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    doctorName,
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                   ),
                                   Text(
                                     '$count appointments',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.textTheme.bodySmall?.color
-                                              ?.withOpacity(isDark ? 0.7 : 0.6) ??
-                                          (isDark ? Colors.white70 : Colors.grey),
-                                    ),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Colors.white70,
+                                        ),
                                   ),
                                 ],
                               ),
@@ -477,7 +536,6 @@ class _MiniStatTile extends StatelessWidget {
   final Color color;
 
   const _MiniStatTile({
-    super.key,
     required this.icon,
     required this.label,
     required this.value,
@@ -549,7 +607,7 @@ class _MiniStatTile extends StatelessWidget {
 /// 1) تبويب المواعيد (Appointments) – مع زر Export PDF
 /// =======================
 class _AppointmentsTab extends StatefulWidget {
-  const _AppointmentsTab({super.key});
+  const _AppointmentsTab();
 
   @override
   State<_AppointmentsTab> createState() => _AppointmentsTabState();
@@ -785,12 +843,42 @@ class _AppointmentsTabState extends State<_AppointmentsTab> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _StatCard(label: 'Total', value: total.toString()),
-                    _StatCard(label: 'Pending', value: pending.toString()),
-                    _StatCard(label: 'Approved', value: approved.toString()),
-                    _StatCard(label: 'Canceled', value: canceled.toString()),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Total',
+                        value: total.toString(),
+                        icon: Icons.event_available,
+                        color: kPrimaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Pending',
+                        value: pending.toString(),
+                        icon: Icons.hourglass_bottom_rounded,
+                        color: Colors.orange.shade600,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Approved',
+                        value: approved.toString(),
+                        icon: Icons.check_circle_rounded,
+                        color: Colors.green.shade600,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Canceled',
+                        value: canceled.toString(),
+                        icon: Icons.cancel_rounded,
+                        color: Colors.red.shade600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1133,43 +1221,86 @@ class _StatusBadge extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  const _StatCard({required this.label, required this.value});
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final baseText =
-        theme.textTheme.bodySmall?.color ?? (isDark ? Colors.white70 : Colors.grey);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      height: 90,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(isDark ? 0.35 : 0.30),
+            color.withOpacity(isDark ? 0.18 : 0.15),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.32)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: color.withOpacity(0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
+        border: Border.all(
+          color: Colors.white.withOpacity(isDark ? 0.06 : 0.7),
+          width: 0.8,
+        ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : kPrimaryColor,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(isDark ? 0.12 : 0.20),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: isDark ? Colors.white : const Color.fromARGB(221, 255, 255, 255),
             ),
           ),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: baseText,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.82),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1190,7 +1321,7 @@ class _StatCard extends StatelessWidget {
 //
 
 class _PatientsTab extends StatelessWidget {
-  const _PatientsTab({super.key});
+  const _PatientsTab();
 
   @override
   Widget build(BuildContext context) {
@@ -1245,34 +1376,21 @@ class _PatientsTab extends StatelessWidget {
               final email = (data['email'] ?? '').toString();
               final phone = (data['phoneNumber'] ?? '').toString();
 
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDark
-                          ? Colors.black.withOpacity(0.32)
-                          : Colors.black.withOpacity(0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
+              return FancyCard(
+                baseColor: kPrimaryColor,
+                margin: const EdgeInsets.only(bottom: 10),
                 child: Row(
                   children: [
                     Container(
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: kPrimaryColor.withOpacity(0.12),
+                        color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(
                         Icons.person_rounded,
-                        color: kPrimaryColor,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1282,28 +1400,24 @@ class _PatientsTab extends StatelessWidget {
                         children: [
                           Text(
                             name,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
-                          const SizedBox(height: 2),
                           if (email.isNotEmpty)
                             Text(
                               email,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.textTheme.bodySmall?.color
-                                        ?.withOpacity(isDark ? 0.75 : 0.6) ??
-                                    (isDark ? Colors.white70 : Colors.grey),
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.white70,
+                                  ),
                             ),
                           if (phone.isNotEmpty)
                             Text(
                               'Phone: $phone',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.textTheme.bodySmall?.color
-                                        ?.withOpacity(isDark ? 0.75 : 0.6) ??
-                                    (isDark ? Colors.white70 : Colors.grey),
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.white70,
+                                  ),
                             ),
                         ],
                       ),
@@ -1332,7 +1446,7 @@ class _PatientsTab extends StatelessWidget {
 //
 
 class _DoctorsTab extends StatefulWidget {
-  const _DoctorsTab({super.key});
+  const _DoctorsTab();
 
   @override
   State<_DoctorsTab> createState() => _DoctorsTabState();
@@ -1426,7 +1540,7 @@ class _DoctorsTabState extends State<_DoctorsTab> {
 
                         try {
                           if (isEdit) {
-                            await doc!.reference.update({
+                            await doc.reference.update({
                               'name': name,
                               'specialty': specialty,
                             });
@@ -1530,34 +1644,21 @@ class _DoctorsTabState extends State<_DoctorsTab> {
                 final specialty =
                     (data['specialty'] ?? 'Unknown specialty').toString();
 
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isDark
-                            ? Colors.black.withOpacity(0.32)
-                            : Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
+                return FancyCard(
+                  baseColor: kPrimaryColor,
+                  margin: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     children: [
                       Container(
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: kPrimaryColor.withOpacity(0.12),
+                          color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
                           Icons.medical_services_rounded,
-                          color: kPrimaryColor,
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1567,18 +1668,17 @@ class _DoctorsTabState extends State<_DoctorsTab> {
                           children: [
                             Text(
                               name,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 4),
                             Text(
                               specialty,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.textTheme.bodySmall?.color
-                                        ?.withOpacity(isDark ? 0.75 : 0.6) ??
-                                    (isDark ? Colors.white70 : Colors.grey),
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.white70,
+                                  ),
                             ),
                           ],
                         ),
@@ -1601,6 +1701,7 @@ class _DoctorsTabState extends State<_DoctorsTab> {
                             child: Text('Delete'),
                           ),
                         ],
+                        color: Colors.white,
                       ),
                     ],
                   ),
@@ -1721,7 +1822,11 @@ class _AdminSettingsTab extends StatelessWidget {
                 style: TextStyle(fontSize: 12),
               ),
               value: isDark,
-              onChanged: (value) => MyApp.of(context)?.setThemeMode(value),
+              onChanged: (value) {
+                final themeProvider =
+                    Provider.of<ThemeProvider>(context, listen: false);
+                themeProvider.toggleTheme(value);
+              },
             ),
             const SizedBox(height: 16),
             const Text(
@@ -1775,6 +1880,56 @@ class _AdminSettingsTab extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// FancyCard widget used above
+class FancyCard extends StatelessWidget {
+  final Widget child;
+  final Color baseColor;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+
+  const FancyCard({
+    super.key,
+    required this.child,
+    required this.baseColor,
+    this.padding = const EdgeInsets.all(14),
+    this.margin = EdgeInsets.zero,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      margin: margin,
+      padding: padding,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            baseColor.withOpacity(isDark ? 0.35 : 0.30),
+            baseColor.withOpacity(isDark ? 0.18 : 0.15),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: baseColor.withOpacity(0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withOpacity(isDark ? 0.06 : 0.7),
+          width: 0.8,
+        ),
+      ),
+      child: child,
     );
   }
 }

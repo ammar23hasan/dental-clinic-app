@@ -54,6 +54,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return FirebaseFirestore.instance.collection('users').doc(userId).snapshots();
   }
 
+  // New: reusable header widget (merged as requested)
+  Widget buildProfileHeader(BuildContext context, String fullName, String email, String phone) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            kPrimaryColor.withOpacity(0.9),
+            kPrimaryColor.withOpacity(0.75),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryColor.withOpacity(0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              size: 42,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          Text(
+            fullName.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          Text(
+            email,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+
+          if (phone.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              phone,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -142,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
 
                 // ********** 1. قسم المعلومات العامة (البطاقة الزرقاء) **********
-                _buildUserInfoCard(fullName: fullName, email: email, phone: phone),
+                buildProfileHeader(context, fullName, email, phone),
                 const SizedBox(height: 20),
 
                 // ********** 2. قسم المعلومات الشخصية المفصلة **********
@@ -211,7 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           const SizedBox(height: 20),
-          _buildUserInfoCard(fullName: fullName, email: email, phone: phone),
+          buildProfileHeader(context, fullName, email, phone),
           const SizedBox(height: 20),
           _buildPersonalInformationCard(fullName: fullName, email: email, phone: phone),
           const SizedBox(height: 30),
@@ -271,34 +347,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // -------------------------------------------------------------------
   // الدوال المساعدة (Helper Widgets)
   // -------------------------------------------------------------------
-
-  // بناء بطاقة معلومات المستخدم العامة (الزرقاء)
-  Widget _buildUserInfoCard({required String fullName, required String email, required String phone}) {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: primaryColor,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Icon(Icons.person_outline, size: 40, color: Colors.white),
-          const SizedBox(height: 10),
-          Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 5),
-          Text(email, style: const TextStyle(fontSize: 14, color: Colors.white70)),
-          Text(phone, style: const TextStyle(fontSize: 14, color: Colors.white70)),
-        ],
-      ),
-    );
-  }
 
   // بناء بطاقة المعلومات الشخصية المفصلة
   Widget _buildPersonalInformationCard({required String fullName, required String email, required String phone}) {
@@ -368,7 +416,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.only(bottom: 15.0),
       child: InkWell(
         onTap: () {
-          if (context != null && routeName.isNotEmpty) {
+          if (routeName.isNotEmpty) {
             Navigator.pushNamed(context, routeName);
           }
         },

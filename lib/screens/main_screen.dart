@@ -288,7 +288,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // دالة لبناء الأزرار السريعة (Quick Actions)
+  // دالة لbuild الأزرار السريعة (Quick Actions) - now implemented via HomeActionCard
   Widget _buildQuickActionButton(
     BuildContext context, {
     required IconData icon,
@@ -315,95 +315,15 @@ class _MainScreenState extends State<MainScreen> {
       navigationTap = () {};
     }
 
-    final theme = Theme.of(context);
-    // Use theme-aware colors for non-primary cards so they adapt to dark/light modes
-    final Color backgroundColor =
-        isPrimary ? primaryColor.withOpacity(0.9) : theme.cardColor;
-    final Color iconContainerColor = isPrimary
-        ? Colors.white
-        : theme.colorScheme.primary.withOpacity(0.08);
-    final Color iconColor = isPrimary
-        ? theme.colorScheme.primary
-        : theme.colorScheme.primary;
-    final Color titleColor = isPrimary
-        ? Colors.white
-        : (theme.textTheme.titleLarge?.color ?? theme.textTheme.bodyLarge?.color ?? Colors.black);
-    final Color? subtitleColor = isPrimary
-        ? Colors.white70
-        : (theme.textTheme.bodySmall?.color ?? Colors.grey[600]);
-    final Color arrowColor = isPrimary
-        ? Colors.white
-        : (theme.iconTheme.color ?? Colors.grey);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: isPrimary
-            ? [
-                BoxShadow(
-                  color: primaryColor.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: navigationTap,
-          borderRadius: BorderRadius.circular(15),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconContainerColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: iconColor,
-                  ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: titleColor,
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: subtitleColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: arrowColor,
-            ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return HomeActionCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      isPrimary: isPrimary,
+      onTap: navigationTap,
     );
   }
+
   // دالة بناء بطاقة الموعد (مع تفعيل التنقل)
   Widget _buildAppointmentTile(BuildContext context, Appointment appointment) {
     Color statusColor = appointment.status == 'Confirmed'
@@ -539,6 +459,130 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// New reusable action card used in the home screen
+class HomeActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  const HomeActionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // ألوان الكرت حسب إذا كان أساسي (أزرق) أو عادي
+    final Color baseColor = isPrimary
+        ? kPrimaryColor
+        : (isDark ? const Color(0xFF424242) : theme.cardColor);
+
+    final List<Color> gradientColors = isPrimary
+        ? [
+            baseColor.withOpacity(0.95),
+            baseColor.withOpacity(0.85),
+          ]
+        : [
+            baseColor.withOpacity(isDark ? 0.95 : 0.98),
+            baseColor.withOpacity(isDark ? 0.90 : 0.96),
+          ];
+
+    final Color iconBg = isPrimary
+        ? Colors.white.withOpacity(0.18)
+        : (isDark
+            ? Colors.black.withOpacity(0.15)
+            : Colors.black.withOpacity(0.04));
+
+    final Color iconColor = isPrimary
+        ? Colors.white
+        : (isDark ? Colors.white : Colors.black87);
+
+    final Color titleColor = isPrimary ? Colors.white : theme.textTheme.bodyLarge?.color ?? Colors.white;
+    final Color subtitleColor = isPrimary
+        ? Colors.white70
+        : (theme.textTheme.bodySmall?.color?.withOpacity(isDark ? 0.7 : 0.6) ??
+            (isDark ? Colors.white70 : Colors.grey[700]!));
+
+    final Color shadowColor =
+        isPrimary ? kPrimaryColor.withOpacity(0.40) : Colors.black.withOpacity(isDark ? 0.45 : 0.08);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: iconColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: titleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: subtitleColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isPrimary ? Colors.white : subtitleColor,
+            ),
+          ],
         ),
       ),
     );

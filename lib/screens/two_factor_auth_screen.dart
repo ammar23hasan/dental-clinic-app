@@ -124,7 +124,7 @@ class _TwoFactorAuthScreenState extends State<TwoFactorAuthScreen> {
                     subtitle: Text(_is2FAEnabled ? 'Currently Active' : 'Currently Inactive'),
                     value: _is2FAEnabled,
                     onChanged: _toggle2FA,
-                    activeColor: kPrimaryColor,
+                    activeThumbColor: kPrimaryColor,
                   ),
                 ],
               ),
