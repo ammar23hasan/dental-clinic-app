@@ -1732,7 +1732,7 @@ class _DoctorsTabState extends State<_DoctorsTab> {
 //
 
 class _AdminSettingsTab extends StatelessWidget {
-  const _AdminSettingsTab({super.key});
+  const _AdminSettingsTab();
 
   @override
   Widget build(BuildContext context) {

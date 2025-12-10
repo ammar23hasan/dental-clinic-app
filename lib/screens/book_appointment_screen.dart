@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../constants.dart';
 import '../models/appointment_model.dart';
-import 'package:characters/characters.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({super.key});
@@ -258,15 +257,14 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-
-              const Text(
-                'Select Service',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
+             Text(
+'Select Service',
+  style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Theme.of(context).textTheme.bodyLarge!.color,
+  ),
+),
               const SizedBox(height: 15),
               _buildServiceList(),
 
@@ -274,14 +272,14 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               _buildDoctorDropdown(),
               const SizedBox(height: 30),
 
-              const Text(
-                'Select Date',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
+              Text(
+  'Select Date',
+  style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Theme.of(context).textTheme.bodyLarge!.color,
+  ),
+),
               const SizedBox(height: 15),
               _buildCalendar(),
               const SizedBox(height: 30),
@@ -360,9 +358,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: _selectedServiceIndex == index
-                              ? primaryColor
-                              : Colors.black,
+                            color: Theme.of(context).textTheme.bodyLarge!.color,
+
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -606,12 +603,12 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+           Text(
             'Time',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.black,
+            color: Theme.of(context).textTheme.bodyLarge!.color,
             ),
           ),
           InkWell(

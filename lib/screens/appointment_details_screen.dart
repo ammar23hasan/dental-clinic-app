@@ -73,7 +73,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
   }
 
   // دوال بناء البطاقات (للتصميم)
-  Widget _buildDetailRow(IconData icon, String title, String subtitle) {
+  Widget _buildDetailRow(BuildContext context, IconData icon, String title, String subtitle) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -85,7 +85,8 @@ class AppointmentDetailsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 16, color: Colors.black87)),
+                Text(title, style: TextStyle(fontSize: 16,   color: Theme.of(context).textTheme.bodyLarge!.color,
+                    fontWeight: FontWeight.bold)),
                 Text(subtitle, style: const TextStyle(fontSize: 14, color: Colors.grey)),
               ],
             ),
@@ -108,7 +109,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailsCard(Appointment appointment) {
+  Widget _buildDetailsCard(BuildContext context, Appointment appointment) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -117,11 +118,12 @@ class AppointmentDetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold
+            )),
             const Divider(height: 20),
-            _buildDetailRow(Icons.person, appointment.doctorName, 'Dentist'),
-            _buildDetailRow(Icons.schedule, appointment.duration, 'Duration'),
-            _buildDetailRow(Icons.location_on, appointment.clinicAddress, 'SmileCare Dental Clinic'),
+            _buildDetailRow(context, Icons.person, appointment.doctorName, 'Dentist'),
+            _buildDetailRow(context, Icons.schedule, appointment.duration, 'Duration'),
+            _buildDetailRow(context, Icons.location_on, appointment.clinicAddress, 'SmileCare Dental Clinic'),
           ],
         ),
       ),
@@ -222,7 +224,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   
                   // ********** بطاقة التفاصيل **********
-                  _buildDetailsCard(appointment),
+                  _buildDetailsCard(context, appointment),
                   const SizedBox(height: 20),
 
                   // ********** بطاقة التحضير **********

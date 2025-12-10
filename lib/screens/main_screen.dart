@@ -103,12 +103,12 @@ class _MainScreenState extends State<MainScreen> {
                       fontWeight: FontWeight.normal,
                     ),
                   ),
-                  const Text(
+                    Text(
                     'Ammar Hasan',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: Theme.of(context).textTheme.bodyLarge!.color
                     ),
                   ),
                 ],

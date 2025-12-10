@@ -25,7 +25,7 @@ class ServiceDetailsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           serviceName,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge!.color),
         ),
         elevation: 1,
       ),
@@ -37,23 +37,24 @@ class ServiceDetailsScreen extends StatelessWidget {
             // عنوان ووصف
             Text(
               serviceName,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge!.color),
             ),
             const SizedBox(height: 10),
             Text(
               _description,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const Divider(height: 40),
 
             // معلومات الخدمة
             _buildInfoTile(
+              context,
               Icons.schedule,
               'Duration',
               'Approx. 45 - 90 minutes',
             ),
-            _buildInfoTile(Icons.attach_money, 'Price Range', '\$120 - \$500'),
-            _buildInfoTile(Icons.healing, 'Recovery', 'Immediate'),
+            _buildInfoTile(context, Icons.attach_money, 'Price Range', '\$120 - \$500'),
+            _buildInfoTile(context, Icons.healing, 'Recovery', 'Immediate'),
 
             const SizedBox(height: 50),
 
@@ -93,31 +94,34 @@ class ServiceDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoTile(IconData icon, String title, String subtitle) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Row(
-        children: [
-          Icon(icon, color: kPrimaryColor, size: 24),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+Widget _buildInfoTile(BuildContext context, IconData icon, String title, String subtitle) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10.0),
+    child: Row(
+      children: [
+        Icon(icon, color: kPrimaryColor, size: 24),
+        const SizedBox(width: 15),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).textTheme.bodyLarge!.color,
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 }

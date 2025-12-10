@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:characters/characters.dart';
 import 'package:provider/provider.dart';
+import 'doctor_patient_details_screen.dart'; // تأكد من المسار الصحيح
+import 'dart:ui';
 
 import '../constants.dart';
 import '../providers/theme_provider.dart';
@@ -429,10 +431,9 @@ class _DoctorOverviewTab extends StatelessWidget {
           );
         },
       ),
-    ); 
+    );
     }  
     }
-
 
 
 class _DoctorStatCard extends StatelessWidget {
@@ -448,35 +449,88 @@ class _DoctorStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 22, color: kPrimaryColor),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-        ],
-      )
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withOpacity(.05)
+                : Colors.white.withOpacity(.35),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(.08)
+                  : Colors.white.withOpacity(.4),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.blue.withOpacity(0.15),
+                blurRadius: 18,
+                offset: const Offset(2, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Icon box
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withOpacity(.08)
+                      : Colors.white.withOpacity(.65),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: kPrimaryColor.withOpacity(.2),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  icon,
+                  size: 26,
+                  color: kPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Value
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+
+              const SizedBox(height: 6),
+
+              // Label
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
+
+
 
 class _MiniBarChart extends StatelessWidget {
   final DateTime startDate; // أول يوم (من آخر ٧ أيام)
@@ -736,16 +790,12 @@ class _DoctorPatientsTab extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
 
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-
+    final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     if (!snap.exists) return null;
 
     final data = snap.data();
     final name = data?['fullName']?.toString();
-    // debug: print('DoctorPatientsTab -> fullName from users = $name');
+    print('DoctorPatientsTab -> fullName from users = $name');
     return name;
   }
 
@@ -755,67 +805,48 @@ class _DoctorPatientsTab extends StatelessWidget {
       future: _getDoctorName(),
       builder: (context, nameSnapshot) {
         if (nameSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: kPrimaryColor),
-          );
+          return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
         }
-
         if (!nameSnapshot.hasData || nameSnapshot.data == null) {
-          return const Center(
-            child: Text('Doctor name not found for this account.'),
-          );
+          return const Center(child: Text('Doctor name not found for this account.'));
         }
 
         final doctorName = nameSnapshot.data!;
-        // debug: print('DoctorPatientsTab -> using doctor = $doctorName');
+        print('DoctorPatientsTab -> using doctor = $doctorName');
 
-        final query = FirebaseFirestore.instance
-            .collection('appointments')
-            .where('doctor', isEqualTo: doctorName);
+        final query = FirebaseFirestore.instance.collection('appointments').where('doctor', isEqualTo: doctorName);
 
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: query.snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: kPrimaryColor),
-              );
+              return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
             }
-
             if (snapshot.hasError) {
-              return Center(
-                child: Text('Error loading patients: ${snapshot.error}'),
-              );
+              return Center(child: Text('Error loading patients: ${snapshot.error}'));
             }
 
             final docs = snapshot.data?.docs ?? [];
+            print('DoctorPatientsTab -> appointments count = ${docs.length}');
             if (docs.isEmpty) {
-              return const Center(
-                child: Text('No patients found for this doctor yet.'),
-              );
+              return const Center(child: Text('No patients found for this doctor yet.'));
             }
 
-            // تجميع حسب userId
             final Map<String, _DoctorPatientSummary> patients = {};
-
             for (final doc in docs) {
               final data = doc.data();
-              final userId = (data['userId'] ?? '') as String;
+
+              final userId = (data['userId'] ?? '').toString().trim();
               if (userId.isEmpty) continue;
 
-              final patientName =
-                  (data['patientName'] ?? 'Unknown patient').toString();
-              final patientEmail = (data['patientEmail'] ?? '').toString();
-              final status = (data['status'] ?? 'Pending').toString();
-
-              DateTime? date;
-              final rawDate = data['date'];
-              if (rawDate is Timestamp) {
-                date = rawDate.toDate();
-              } else if (rawDate is String) {
-                // currently ignore parsing string dates here
-                date = null;
+              String patientName = (data['patientName'] ?? '').toString().trim();
+              String patientEmail = (data['patientEmail'] ?? '').toString().trim();
+              if (patientEmail.isEmpty && data['email'] != null) {
+                patientEmail = data['email'].toString();
               }
+
+              final status = (data['status'] ?? 'Pending').toString();
+              final date = _parseDate(data['date']);
 
               patients.update(
                 userId,
@@ -842,89 +873,205 @@ class _DoctorPatientsTab extends StatelessWidget {
                 return db.compareTo(da);
               });
 
+            print('DoctorPatientsTab -> unique patients = ${items.length}');
+
             return ListView.separated(
               padding: const EdgeInsets.all(16),
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final p = items[index];
+                final needsLookup = p.name.trim().isEmpty || p.name.toLowerCase().contains('unknown patient');
 
-                final lastVisitText = p.lastVisit == null
-                    ? 'No visits date'
-                    : '${p.lastVisit!.year}-${p.lastVisit!.month.toString().padLeft(2, '0')}-${p.lastVisit!.day.toString().padLeft(2, '0')}';
+                  return FutureBuilder<String>(
+                  future: needsLookup ? _getPatientDisplayName(p.userId, fallback: p.email) : Future.value(p.name),
+                  builder: (context, snapshotName) {
+                    final displayName = snapshotName.data ?? (p.name.isEmpty ? 'Patient' : p.name);
+                    final initials = _initialsFromName(displayName);
+                    final lastVisitText = _formatDate(p.lastVisit);
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(16),
+           return TweenAnimationBuilder(
+  duration: const Duration(milliseconds: 180),
+  tween: Tween<double>(begin: 1, end: 1),
+  builder: (context, scale, child) {
+    return Transform.scale(
+      scale: scale,
+      child: GestureDetector(
+        onTapDown: (_) {
+          // ضغط ↓ يصغر الكرت شوي
+          (context as Element).markNeedsBuild();
+        },
+        onTapUp: (_) async {
+          await Future.delayed(const Duration(milliseconds: 120));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DoctorPatientDetailsScreen(
+                userId: p.userId,
+                displayName: displayName,
+                email: p.email,
+                doctorName: doctorName,
+              ),
+            ),
+          );
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                color: isDark
+                    ? Colors.white.withOpacity(.05)
+                    : Colors.white.withOpacity(.45),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withOpacity(.08)
+                      : Colors.white.withOpacity(.55),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(.15),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
                   ),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: kPrimaryColor.withOpacity(0.12),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          kPrimaryColor.withOpacity(.7),
+                          kPrimaryColor.withOpacity(.3),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          color: Colors.white,
                         ),
-                        child: Center(
-                          child: Text(
-                            _initialsFromName(p.name),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: kPrimaryColor,
-                            ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 14),
+
+                  // Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        if (p.email.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            p.email,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: Colors.grey),
                           ),
+                        ],
+                        const SizedBox(height: 6),
+                        Text(
+                          "Visits: ${p.visitsCount} • Last: $lastVisitText",
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.grey),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              p.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            if (p.email.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                p.email,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: Colors.grey),
-                              ),
-                            ],
-                            const SizedBox(height: 6),
-                            Text(
-                              'Visits: ${p.visitsCount} • Last visit: $lastVisitText',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _statusBadge(p.lastStatus),
-                    ],
+                      ],
+                    ),
                   ),
-                );
+
+                  const SizedBox(width: 10),
+
+                  // Status Badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: _statusColor(p.lastStatus).withOpacity(.15),
+                      border: Border.all(color: _statusColor(p.lastStatus)),
+                    ),
+                    child: Text(
+                      p.lastStatus,
+                      style: TextStyle(
+                        color: _statusColor(p.lastStatus),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  },
+);
+ 
+                    },
+                  );
               },
             );
           },
         );
-      },
+      }
+
     );
+
   }
 
-  // باقي الميثودز كما هي
+  Future<String> _getPatientDisplayName(String userId, {String fallback = 'Patient'}) async {
+    if (userId.isEmpty) return fallback.isNotEmpty ? fallback : 'Patient';
+    try {
+      final snap = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      final data = snap.data();
+      final fullName = data?['fullName']?.toString().trim();
+      if (fullName != null && fullName.isNotEmpty) return fullName;
+    } catch (_) {}
+    return fallback.isNotEmpty ? fallback : 'Patient';
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'No date';
+    return DateFormat('yyyy-MM-dd').format(date);
+  }
+
+  String _initialsFromName(String name) {
+    if (name.trim().isEmpty) return '?';
+    final parts = name.trim().split(' ');
+    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
+    final first = parts.first.characters.first.toUpperCase();
+    final last = parts.last.characters.first.toUpperCase();
+    return '$first$last';
+  }
+
   Widget _statusBadge(String status) {
     Color color;
     switch (status.toLowerCase()) {
@@ -962,13 +1109,34 @@ class _DoctorPatientsTab extends StatelessWidget {
     return a.isAfter(b) ? a : b;
   }
 
-  String _initialsFromName(String name) {
-    if (name.trim().isEmpty) return '?';
-    final parts = name.trim().split(' ');
-    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-    final first = parts.first.characters.first.toUpperCase();
-    final last = parts.last.characters.first.toUpperCase();
-    return '$first$last';
+  DateTime? _parseDate(dynamic raw) {
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is String) {
+      try {
+        return DateFormat('MMMM d, yyyy').parse(raw);
+      } catch (_) {
+        try {
+          return DateFormat('MMMM d yyyy').parse(raw.replaceAll(',', ''));
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'canceled':
+      case 'cancelled':
+        return Colors.red;
+      case 'rescheduled':
+        return Colors.orange;
+      default:
+        return Colors.orange;
+    }
   }
 }
 
@@ -1014,7 +1182,7 @@ class _DoctorPatientSummary {
 /// 4) تبويب إعدادات الطبيب
 /// ============================
 class _DoctorSettingsTab extends StatefulWidget {
-  const _DoctorSettingsTab({super.key});
+  const _DoctorSettingsTab();
 
   @override
   State<_DoctorSettingsTab> createState() => _DoctorSettingsTabState();
@@ -1176,82 +1344,124 @@ class _DoctorSettingsTabState extends State<_DoctorSettingsTab> {
     );
   }
 
-  Widget _buildProfileHeader() {
-    final user = FirebaseAuth.instance.currentUser;
+Widget _buildProfileHeader() {
+  final user = FirebaseAuth.instance.currentUser;
 
-    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user?.uid)
-          .get(),
-      builder: (context, snapshot) {
-        String fullName = user?.email ?? 'Doctor';
-        String role = 'Doctor';
+  return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    future: FirebaseFirestore.instance
+        .collection('users')
+        .doc(user?.uid)
+        .get(),
+    builder: (context, snapshot) {
+      String fullName = user?.email ?? 'Doctor';
+      String role = 'Doctor';
 
-        if (snapshot.hasData && snapshot.data!.data() != null) {
-          final data = snapshot.data!.data()!;
-          fullName = (data['fullName'] ?? fullName).toString();
-          role = (data['role'] ?? role).toString();
-        }
+      if (snapshot.hasData && snapshot.data!.data() != null) {
+        final data = snapshot.data!.data()!;
+        fullName = (data['fullName'] ?? fullName).toString();
+        role = (data['role'] ?? role).toString();
+      }
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: kPrimaryColor.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.person,
-                  size: 30,
-                  color: kPrimaryColor,
-                ),
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              color: isDark
+                  ? Colors.white.withOpacity(.05)
+                  : Colors.white.withOpacity(.35),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(.07)
+                    : Colors.white.withOpacity(.45),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fullName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withOpacity(0.35)
+                      : Colors.blue.withOpacity(.18),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                )
+              ],
+            ),
+            child: Row(
+              children: [
+                // Avatar glass circle
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDark
+                            ? Colors.white.withOpacity(.06)
+                            : Colors.white.withOpacity(.55),
+                        boxShadow: [
+                          BoxShadow(
+                            color: kPrimaryColor.withOpacity(.25),
+                            blurRadius: 14,
+                          )
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        size: 34,
+                        color: kPrimaryColor,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      user?.email ?? '',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      role,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+
+                const SizedBox(width: 18),
+
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        user?.email ?? '',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        role,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
+
 }
 
 /// بلاطات إعدادات عادية
@@ -1343,7 +1553,7 @@ class _SettingsSwitchTile extends StatelessWidget {
         ),
         trailing: Switch(
           value: value,
-          activeColor: Colors.white,
+          activeThumbColor: Colors.white,
           activeTrackColor: kPrimaryColor,
           onChanged: onChanged,
         ),
