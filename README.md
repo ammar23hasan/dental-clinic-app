@@ -58,7 +58,7 @@ single codebase.
 - 
 <img width="402" height="852" alt="image" src="https://github.com/user-attachments/assets/5561862e-3906-43da-800c-98a485a2a0df" />
 
-<img width="379" height="755" alt="image" src="https://github.com/user-attachments/assets/4b2b793f-58b7-47d2-b7f7-b9e4baecda24" />
+<img width="415" height="870" alt="image" src="https://github.com/user-attachments/assets/e9df4a3c-2c63-4411-a5ff-e9a6f9bc5ff0" />
 
 ## Setup
 
@@ -99,7 +99,7 @@ single codebase.
 
 <img width="411" height="859" alt="image" src="https://github.com/user-attachments/assets/2b3a0ea6-36ea-4a71-9df4-ed3d47a2c712" />
 
-<img width="379" height="755" alt="image" src="https://github.com/user-attachments/assets/b323e285-2616-42b5-9f26-8840cbd2d30a" />
+<img width="415" height="870" alt="image" src="https://github.com/user-attachments/assets/b0912d9c-caac-4696-892b-f8963b3c8fb1" />
 
 <img width="402" height="852" alt="image" src="https://github.com/user-attachments/assets/ef9f15f0-7c44-4c43-8de1-19b127bd58b1" />
 
