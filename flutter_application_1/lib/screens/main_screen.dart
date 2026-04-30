@@ -1,0 +1,723 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import '../constants.dart';
+import '../models/appointment_model.dart';
+import 'notifications_sheet.dart';
+import '../providers/locale_provider.dart';
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  final Color primaryColor = kPrimaryColor;
+
+  // دالة لتحديد رسالة الترحيب بناءً على الوقت
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good morning';
+    } else if (hour < 17) {
+      return 'Good afternoon';
+    } else {
+      return 'Good evening';
+    }
+  }
+
+  IconData _serviceIcon(Map<String, dynamic> service) {
+    final category = (service['category'] ?? '').toString().toLowerCase();
+    final name = (service['name'] ?? '').toString().toLowerCase();
+
+    if (name.contains('whitening')) return Icons.star;
+    if (name.contains('clean')) return Icons.clean_hands;
+    if (name.contains('root')) return Icons.medical_services;
+    if (category.contains('cosmetic')) return Icons.star;
+    if (category.contains('surgical')) return Icons.medical_services_outlined;
+    if (category.contains('restorative')) return Icons.healing;
+    return Icons.healing;
+  }
+
+  String _formatPrice(dynamic value) {
+    final text = (value ?? '').toString();
+    if (text.isEmpty) return '—';
+    return text.startsWith('\$') ? text : '\$$text';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            // ********** الهيدر والترحيب (SliverAppBar) **********
+            SliverAppBar(
+              floating: true,
+              pinned: false,
+              elevation: 0,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _getGreeting(), // رسالة الترحيب الديناميكية
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                    _buildUserName(context),
+                ],
+              ),
+              actions: [
+                // Language switcher popup
+                Padding(
+                  padding: const EdgeInsets.only(right: 4.0),
+                  child: PopupMenuButton<String>(
+                    tooltip: 'Language',
+                    icon: const Icon(Icons.language, color: Colors.grey),
+                    onSelected: (value) {
+                      final provider = Provider.of<LocaleProvider>(context, listen: false);
+                      if (value == 'en') {
+                        provider.setLocale(const Locale('en'));
+                      } else if (value == 'ar') {
+                        provider.setLocale(const Locale('ar'));
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'en',
+                        child: Row(
+                          children: const [
+                            Text('English'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'ar',
+                        child: Row(
+                          children: const [
+                            Text('العربية'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                IconButton(
+                  icon: const Icon(
+                    Icons.notifications_none,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    _showNotificationsSheet(context); // تفعيل شيت الإشعارات
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: CircleAvatar(
+                    backgroundColor: primaryColor.withOpacity(0.2),
+                    child: IconButton(
+                      icon: Icon(Icons.person, color: primaryColor),
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/profile');
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // ********** قائمة العناصر المتبقية (SliverList) **********
+            SliverList(
+              delegate: SliverChildListDelegate([
+                const SizedBox(height: 20),
+
+                // 1. قسم الخدمات السريعة (Quick Services)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    children: [
+                      _buildQuickActionButton(
+                        context,
+                        icon: Icons.calendar_today,
+                        title: 'Book Appointment',
+                        subtitle: 'Schedule your next visit',
+                        color: primaryColor,
+                        isPrimary: true,
+                      ),
+                      const SizedBox(height: 15),
+                      _buildQuickActionButton(
+                        context,
+                        icon: Icons.access_time,
+                        title: 'My Appointments',
+                        subtitle: 'View upcoming visits',
+                        color: Colors.grey.shade100,
+                        isPrimary: false,
+                      ),
+                      const SizedBox(height: 15),
+                      _buildQuickActionButton(
+                        context,
+                        icon: Icons.medical_services_outlined,
+                        title: 'Clinic Services',
+                        subtitle: 'Explore our treatments',
+                        color: Colors.grey.shade100,
+                        isPrimary: false,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                // 2. قسم المواعيد القادمة (Upcoming Appointments)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    'Upcoming Appointments',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                _buildUpcomingAppointmentsSection(context),
+
+                const SizedBox(height: 30),
+
+                // 3. قسم الخدمات الشائعة (Popular Services)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    'Popular Services',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // ********** شريط التمرير الأفقي الجديد **********
+                SizedBox(
+                  height: 140,
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('services')
+                        .orderBy('name')
+                        .limit(10)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child:
+                              CircularProgressIndicator(color: kPrimaryColor),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return Center(
+                          child:
+                              Text('Error loading services: ${snapshot.error}'),
+                        );
+                      }
+
+                      final services = snapshot.data?.docs
+                              .map((doc) => {
+                                    'id': doc.id,
+                                    ...doc.data(),
+                                  })
+                              .toList() ??
+                          [];
+
+                      if (services.isEmpty) {
+                        return const Center(
+                          child: Text('No services available.'),
+                        );
+                      }
+
+                      return ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: services.length,
+                        itemBuilder: (context, index) {
+                          final service = services[index];
+                          return _buildServiceCardHorizontal(context, service);
+                        },
+                      );
+                    },
+                  ),
+                ),
+
+                // **********************************************
+                const SizedBox(height: 50),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserName(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Text(
+        'Guest',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).textTheme.bodyLarge!.color,
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final fullName = (data?['fullName'] ?? '').toString().trim();
+        final displayName = fullName.isNotEmpty ? fullName : (user.email ?? 'User');
+
+        return Text(
+          displayName,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge!.color,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUpcomingAppointmentsSection(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Text('Sign in to see your appointments.'),
+        ),
+      );
+    }
+
+    final stream = FirebaseFirestore.instance
+        .collection('appointments')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: CircularProgressIndicator(color: kPrimaryColor),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text('Error loading appointments: ${snapshot.error}'),
+          );
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text('No upcoming appointments yet.'),
+            ),
+          );
+        }
+
+        final appointments = docs.map((doc) {
+          final data = doc.data();
+          return Appointment(
+            id: doc.id,
+            service: data['serviceName'] ?? 'Service',
+            date: data['date'] ?? 'N/A',
+            time: data['time'] ?? '',
+            doctorName: data['doctor'] ?? 'Unassigned',
+            clinicAddress: 'SmileCare Dental Clinic',
+            status: data['status'] ?? 'Pending',
+            duration: data['duration'] ?? '',
+          );
+        }).toList();
+
+        appointments.sort((a, b) {
+          final da = _parseAppointmentDate(a.date, a.time);
+          final db = _parseAppointmentDate(b.date, b.time);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+
+        return Column(
+          children: appointments
+              .take(3)
+              .map((appointment) => _buildAppointmentTile(context, appointment))
+              .toList(),
+        );
+      },
+    );
+  }
+
+  DateTime? _parseAppointmentDate(String date, String time) {
+    DateTime? parsedDate;
+    try {
+      parsedDate = DateFormat('MMMM d, yyyy').parse(date);
+    } catch (_) {
+      try {
+        parsedDate = DateFormat('MMMM d yyyy').parse(date.replaceAll(',', ''));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    if (time.trim().isEmpty) {
+      return parsedDate;
+    }
+
+    try {
+      final parsedTime = DateFormat('h:mm a').parse(time);
+      return DateTime(
+        parsedDate.year,
+        parsedDate.month,
+        parsedDate.day,
+        parsedTime.hour,
+        parsedTime.minute,
+      );
+    } catch (_) {
+      return parsedDate;
+    }
+  }
+
+  // -------------------------------------------------------------------
+  // الدوال المساعدة (Helper Widgets)
+  // -------------------------------------------------------------------
+
+  // دالة لفتح شيت الإشعارات
+  void _showNotificationsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return const FractionallySizedBox(
+          heightFactor: 0.60,
+          child: NotificationsSheet(),
+        );
+      },
+    );
+  }
+
+  // دالة لbuild الأزرار السريعة (Quick Actions) - now implemented via HomeActionCard
+  Widget _buildQuickActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required bool isPrimary,
+  }) {
+    // تحديد منطق التنقل بناءً على العنوان
+    VoidCallback navigationTap;
+    if (title == 'Book Appointment') {
+      navigationTap = () {
+        Navigator.pushNamed(context, '/bookAppointment');
+      };
+    } else if (title == 'My Appointments') {
+      navigationTap = () {
+        Navigator.pushNamed(context, '/myAppointments');
+      };
+    } else if (title == 'Clinic Services') {
+      navigationTap = () {
+        Navigator.pushNamed(context, '/clinicServices');
+      };
+    } else {
+      navigationTap = () {};
+    }
+
+    return HomeActionCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      isPrimary: isPrimary,
+      onTap: navigationTap,
+    );
+  }
+
+  // دالة بناء بطاقة الموعد (مع تفعيل التنقل)
+  Widget _buildAppointmentTile(BuildContext context, Appointment appointment) {
+    Color statusColor = appointment.status == 'Confirmed'
+        ? Colors.green
+        : Colors.orange;
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        // التنقل الفعلي: يذهب إلى شاشة تفاصيل الموعد
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            '/appointmentDetails',
+            arguments: appointment, // تمرير بيانات الموعد
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(15.0),
+          child: Row(
+            children: [
+              Icon(Icons.calendar_today, color: primaryColor),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      appointment.service,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '${appointment.date} at ${appointment.time}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    Text(
+                      'Dr. ${appointment.doctorName}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  appointment.status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // دالة بناء بطاقة الخدمة (للتمرير الأفقي)
+  Widget _buildServiceCardHorizontal(
+    BuildContext context,
+    Map<String, dynamic> service,
+  ) {
+    return Container(
+      width: 140,
+      margin: const EdgeInsets.only(right: 15),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              '/serviceDetails',
+              arguments: service,
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(15.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(
+                  _serviceIcon(service),
+                  size: 30,
+                  color: primaryColor.withOpacity(0.8),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (service['name'] ?? 'Service').toString(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      (service['duration'] ?? '—').toString(),
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatPrice(service['price']),
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// New reusable action card used in the home screen
+class HomeActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  const HomeActionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // ألوان الكرت حسب إذا كان أساسي (أزرق) أو عادي
+    final Color baseColor = isPrimary
+        ? kPrimaryColor
+        : (isDark ? const Color(0xFF424242) : theme.cardColor);
+
+    final List<Color> gradientColors = isPrimary
+        ? [
+            baseColor.withOpacity(0.95),
+            baseColor.withOpacity(0.85),
+          ]
+        : [
+            baseColor.withOpacity(isDark ? 0.95 : 0.98),
+            baseColor.withOpacity(isDark ? 0.90 : 0.96),
+          ];
+
+    final Color iconBg = isPrimary
+        ? Colors.white.withOpacity(0.18)
+        : (isDark
+            ? Colors.black.withOpacity(0.15)
+            : Colors.black.withOpacity(0.04));
+
+    final Color iconColor = isPrimary
+        ? Colors.white
+        : (isDark ? Colors.white : Colors.black87);
+
+    final Color titleColor = isPrimary ? Colors.white : theme.textTheme.bodyLarge?.color ?? Colors.white;
+    final Color subtitleColor = isPrimary
+        ? Colors.white70
+        : (theme.textTheme.bodySmall?.color?.withOpacity(isDark ? 0.7 : 0.6) ??
+            (isDark ? Colors.white70 : Colors.grey[700]!));
+
+    final Color shadowColor =
+        isPrimary ? kPrimaryColor.withOpacity(0.40) : Colors.black.withOpacity(isDark ? 0.45 : 0.08);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: iconColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: titleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: subtitleColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isPrimary ? Colors.white : subtitleColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

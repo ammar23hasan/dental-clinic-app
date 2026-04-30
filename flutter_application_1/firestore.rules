@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'admin'];
+    }
+    
+    // 1. قواعد المواعيد (Appointments)
+    match /appointments/{appointmentId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isSignedIn()
+        && (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // 2. قواعد المستخدمين (Users)
+    // تصحيح: الآن هي منفصلة ومستقلة، وليست داخل المواعيد
+    match /users/{userId} {
+      allow read, create, update: if isSignedIn()
+        && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /doctors/{doctorId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ملاحظات الطبيب للمرضى
+    match /doctor_patient_notes/{noteId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // قاعدة الأمان الافتراضية (تمنع أي وصول آخر)
+    match /{document=**} {
+      allow read, write: if false; 
+    }
+  }
+}
