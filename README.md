@@ -16,6 +16,7 @@ single codebase.
 - Arabic and English localization
 
 <img width="1197" height="745" alt="image" src="https://github.com/user-attachments/assets/6711f582-acb5-45ad-9014-ad862ba61a76" />
+
 <img width="1205" height="750" alt="image" src="https://github.com/user-attachments/assets/baf3bbf4-ab45-4dc5-918f-c6c5cdf73a75" />
 
 ## Tech Stack
@@ -87,13 +88,21 @@ single codebase.
 - Booking flow
 
 <img width="1203" height="745" alt="image" src="https://github.com/user-attachments/assets/c2cec37c-b380-4bd9-a412-cd1b0a35e22b" />
+
 <img width="1198" height="749" alt="image" src="https://github.com/user-attachments/assets/22b42a17-d4b7-436b-8dcd-330f639a3d59" />
+
 <img width="1205" height="750" alt="image" src="https://github.com/user-attachments/assets/f54f48c2-5c1c-4184-a186-5023e53903af" />
+
 <img width="1218" height="758" alt="image" src="https://github.com/user-attachments/assets/2f1cb924-80fa-4e5b-af86-f5f2f6a59022" />
+
 <img width="1214" height="752" alt="image" src="https://github.com/user-attachments/assets/8bfd310a-a60b-4b82-ad14-701c067e7020" />
+
 <img width="411" height="859" alt="image" src="https://github.com/user-attachments/assets/2b3a0ea6-36ea-4a71-9df4-ed3d47a2c712" />
+
 <img width="379" height="755" alt="image" src="https://github.com/user-attachments/assets/b323e285-2616-42b5-9f26-8840cbd2d30a" />
+
 <img width="402" height="852" alt="image" src="https://github.com/user-attachments/assets/ef9f15f0-7c44-4c43-8de1-19b127bd58b1" />
+
 <img width="395" height="828" alt="image" src="https://github.com/user-attachments/assets/b572c4ec-6909-40bf-9be2-d0c3414ea853" />
 
 
